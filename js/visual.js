@@ -18,6 +18,7 @@
   const st = {
     t: 0, phase: 0, spin: 0, n: 8,
     kick: 0, snare: 0, flash: 0, expose: 0, held: false,
+    scene: 0, prevScene: 0, mix: 1, progress: 0, building: 0, bld: 0,
     tint: [255, 52, 32], tintTo: [255, 52, 32],
   };
   const rings = [];
@@ -40,7 +41,7 @@
   V.recoverAfter = 120;                         // this many smooth seconds (a slow one costs 10) before trying one level up
   let mode = 'auto', level = 2, slowSecs = 0, goodSecs = 0, lastUp = -1e9, noUpUntil = 0;
   V.replay = false;                      // the player sets this: the recording decides the kaleidoscope, not chance
-  V.stats = { fps: 0, frameMs: 0, level: 'high', mode: 'auto', downgrades: 0, upgrades: 0, recovery: 0, errors: 0, sections: {} };
+  V.stats = { fps: 0, frameMs: 0, level: 'high', mode: 'auto', downgrades: 0, upgrades: 0, recovery: 0, errors: 0, scene: 0, sections: {} };
 
   const setN = (n) => { st.n = Math.min(n, LEVELS[level].maxN); };
   V.setKaleido = setN;
@@ -112,6 +113,32 @@
     st.tintTo = SS.seq.lights[i].tint;
   };
 
+  /** Which picture: 0 tentacles, 1 dot grid, 2 film frames, 3 spokes. Crossfades over a couple of seconds. */
+  V.setScene = (i) => {
+    i = Math.max(0, Math.min(3, i | 0));
+    if (i === st.scene) return;
+    st.prevScene = st.scene;
+    st.scene = i;
+    st.mix = 0;
+    V.stats.scene = i;
+    if (SS.perf && !V.replay) SS.perf.log(A.now(), 16, i);
+  };
+
+  /** 0..1: how far into a journey. The picture gets denser and busier as it grows. */
+  V.setProgress = (p) => { st.progress = Math.max(0, Math.min(1, p)); };
+
+  /** 0 none, 1 lift, 2 sink: tension builds in the picture while a build is held. */
+  V.setBuild = (v) => { st.building = v | 0; };
+
+  /** The drop: flash, a hard zoom and spin, and the fog punched open. */
+  V.drop = () => {
+    st.building = 0;
+    st.bld = 0;
+    st.kick = 1;
+    if (!reduce) { st.flash = 1; st.spin += 0.3; }
+    punchFog();
+  };
+
   V.setExpose = (on) => {
     if (!on && st.held && st.expose > 0.3 && !reduce) st.flash = 1;
     st.held = on;
@@ -177,22 +204,35 @@
       } else if (e.type === 'hat') {
         for (let i = 0; i < 3 && sparks.length < 240; i++) sparks.push({ r: 60 + Math.random() * 420, k: Math.random(), a: 1, s: 6 + Math.random() * 10, shape: pick(['c', 'h', 's']) });
       } else if (e.type === 'cycle' && !V.replay && Math.random() < 0.6) {
-        setN(pick([6, 8, 10, 12]));
+        setN(pick(st.progress < 0.3 ? [6, 8] : st.progress < 0.7 ? [8, 10] : [10, 12]));   // more folds the further along you are
         if (SS.perf) SS.perf.log(now, 9, st.n);
+      } else if (!V.replay && e.type === 'scene') {
+        V.setScene(e.a);
+      } else if (!V.replay && e.type === 'style') {
+        V.setScene(SS.seq.scene);
+      } else if (e.type === 'journey') {
+        V.setProgress(e.a || 0);
+      } else if (e.type === 'build') {
+        V.setBuild(e.a ? 2 : 1);
+      } else if (e.type === 'drop') {
+        V.drop();
       }
       if (SS.onEvent) SS.onEvent(e);
     }
   }
 
-  /* ---- scene: drawn once per frame in a square, centre at (512,512) ---- */
-  function drawScene(bass) {
-    const c = cctx, a = TAU / st.n;
-    c.setTransform(1, 0, 0, 1, 0, 0);
-    c.clearRect(0, 0, SC, SC);
-    c.translate(SC / 2, SC / 2);
+  /* ---- scenes: drawn once per frame in a square, centre at (512,512). Only the wedge near angle 0..a is ever seen
+     (the kaleidoscope folds it), so everything lives in that slice. ---- */
+  const hash = (i, j, k) => {
+    let h = (Math.imul(i + 7, 73856093) ^ Math.imul(j + 13, 19349663) ^ Math.imul(k + 3, 83492791)) >>> 0;
+    h = Math.imul(h ^ (h >>> 15), 2246822519) >>> 0;
+    return (h % 10000) / 10000;
+  };
 
-    // bead-chain tentacles with a sucker in every bead
-    for (let k = 0; k < 4; k++) {
+  // 0. bead-chain tentacles with a sucker in every bead; more of them as the journey progresses
+  function sceneTentacles(c, a, bass, p) {
+    const count = 4 + Math.round(p * 4);
+    for (let k = 0; k < count; k++) {
       const len = 30;
       for (let i = 0; i < len; i++) {
         const th = a * (0.5 + 0.38 * Math.sin(st.phase * 0.9 + i * 0.28 + k * 1.7));
@@ -209,8 +249,108 @@
         c.fill();
       }
     }
+  }
 
-    // a ring of dots per kick, travelling outward
+  // 1. a polar grid of circles, half-circles and squares that flip and swell in waves (pixel confetti)
+  function sceneDots(c, a, bass, p) {
+    const flip = Math.floor(st.phase * 1.6);
+    for (let i = 0; i < 15; i++) {
+      const r = 46 + i * 32, m = 3 + Math.floor(i * 0.55) + Math.round(p * 3);
+      for (let j = 0; j < m; j++) {
+        const h = hash(i, j, flip);
+        const shape = Math.floor(h * 4);
+        if (shape === 3 && p < 0.5) continue;
+        const th = (a * (j + 0.5)) / m;
+        const wave = 0.5 + 0.5 * Math.sin(st.phase * 1.1 - i * 0.45 + bass * 5);
+        const sz = 3.5 + 9 * wave * (0.4 + 0.6 * h);
+        c.fillStyle = `rgba(240,240,240,${0.25 + 0.6 * wave})`;
+        const x = r * Math.cos(th), y = r * Math.sin(th);
+        c.beginPath();
+        if (shape === 0) c.arc(x, y, sz, 0, TAU);
+        else if (shape === 1) c.arc(x, y, sz, th, th + Math.PI);
+        else c.rect(x - sz, y - sz, sz * 2, sz * 2);
+        c.fill();
+      }
+    }
+  }
+
+  // 2. strips of film frames marching outward, each exposed a different amount, with sprocket holes (a contact sheet)
+  function sceneFilm(c, a, bass, p) {
+    const lanes = 2 + Math.round(p * 2), tick = Math.floor(st.phase * 0.6);
+    for (let k = 0; k < lanes; k++) {
+      const th = (a * (k + 0.5)) / lanes;
+      for (let n = 0; n < 10; n++) {
+        const r = ((n * 62 + st.phase * 38) % 560) + 30;
+        const w = 10 + r * 0.11, l = 14 + r * 0.16;
+        const e = 0.25 + 0.7 * hash(n, k, tick);
+        c.save();
+        c.translate(r * Math.cos(th), r * Math.sin(th));
+        c.rotate(th);
+        c.fillStyle = `rgba(235,235,235,${(e * 0.5 * (1 - r / 720) + bass * 0.12).toFixed(3)})`;
+        c.fillRect(-l / 2, -w / 2, l, w);
+        c.strokeStyle = 'rgba(240,240,240,0.7)';
+        c.lineWidth = 1.4;
+        c.strokeRect(-l / 2, -w / 2, l, w);
+        c.fillStyle = 'rgba(240,240,240,0.65)';
+        for (let q = 0; q < 4; q++) {
+          const sx = -l / 2 + 2 + q * (l / 4);
+          c.fillRect(sx, -w / 2 - 4.5, 3, 3);
+          c.fillRect(sx, w / 2 + 1.5, 3, 3);
+        }
+        c.restore();
+      }
+    }
+  }
+
+  // 3. fans of light: radiating lines, expanding arcs and rotating polygons (laser-like); more lines as it progresses
+  function sceneSpokes(c, a, bass, p) {
+    const spokes = 6 + Math.round(p * 8);
+    c.lineWidth = 1.6;
+    for (let s = 0; s < spokes; s++) {
+      const th = a * (s / (spokes - 1)) + 0.03 * Math.sin(st.phase + s);
+      const len = 120 + 360 * (0.5 + 0.5 * Math.sin(st.phase * 1.3 + s * 0.9)) * (0.5 + bass);
+      const r0 = 26 + (s % 2 ? 20 : 0);
+      c.strokeStyle = 'rgba(255,255,255,0.55)';
+      c.beginPath();
+      c.moveTo(r0 * Math.cos(th), r0 * Math.sin(th));
+      c.lineTo((r0 + len) * Math.cos(th), (r0 + len) * Math.sin(th));
+      c.stroke();
+    }
+    for (let q = 0; q < 6; q++) {
+      const r = ((q * 90 + st.phase * 70) % 540) + 30;
+      c.strokeStyle = `rgba(255,255,255,${(0.6 * (1 - r / 600)).toFixed(3)})`;
+      c.beginPath();
+      c.arc(0, 0, r, 0, a);
+      c.stroke();
+    }
+    c.strokeStyle = 'rgba(255,255,255,0.45)';
+    for (let m = 0; m < 3; m++) {
+      const sides = 3 + m, rot = st.phase * (0.25 + m * 0.1), rad = 120 + m * 110 + 20 * Math.sin(st.phase + m);
+      c.beginPath();
+      for (let v = 0; v <= sides; v++) {
+        const ang = rot + (v / sides) * TAU;
+        if (v) c.lineTo(rad * Math.cos(ang), rad * Math.sin(ang)); else c.moveTo(rad * Math.cos(ang), rad * Math.sin(ang));
+      }
+      c.stroke();
+    }
+  }
+
+  const SCENES = [sceneTentacles, sceneDots, sceneFilm, sceneSpokes];
+
+  function drawScene(bass) {
+    const c = cctx, a = TAU / st.n, p = st.progress;
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, SC, SC);
+    c.translate(SC / 2, SC / 2);
+
+    if (st.mix < 1) {                                   // crossfading from the last picture to this one
+      c.save(); c.globalAlpha = 1 - st.mix; SCENES[st.prevScene](c, a, bass, p); c.restore();
+      c.save(); c.globalAlpha = st.mix; SCENES[st.scene](c, a, bass, p); c.restore();
+    } else {
+      SCENES[st.scene](c, a, bass, p);
+    }
+
+    // a ring of dots per kick, travelling outward (in every scene)
     for (let i = rings.length - 1; i >= 0; i--) {
       const g = rings[i];
       g.r += 7 + g.r * 0.02;
@@ -229,7 +369,7 @@
       }
     }
 
-    // hat confetti: circles, half-circles and squares
+    // hat confetti: circles, half-circles and squares (in every scene)
     for (let i = sparks.length - 1; i >= 0; i--) {
       const s = sparks[i];
       s.a -= 0.03;
@@ -319,6 +459,7 @@
 
   function draw(dt) {
     const p0 = performance.now();
+    if (!W || !H || !fb.width || !fb.height) return;   // mid-resize or hidden pane: nothing to draw into
     st.t += dt;
     if (A.ready) pump();
 
@@ -330,6 +471,9 @@
     st.snare *= Math.pow(0.05, dt);
     st.flash *= Math.pow(0.002, dt);
     st.expose += ((st.held ? 1 : 0) - st.expose) * Math.min(1, dt * (st.held ? 0.7 : 5));
+    st.bld += ((st.building ? 1 : 0) - st.bld) * Math.min(1, dt * (st.building ? 0.4 : 6));
+    st.mix = Math.min(1, st.mix + dt / 2.2);
+    const tension = Math.max(st.expose, st.bld);
     for (let i = 0; i < 3; i++) st.tint[i] += (st.tintTo[i] - st.tint[i]) * Math.min(1, dt * 4);
 
     // 1. feedback tunnel
@@ -337,8 +481,8 @@
     fctx.globalAlpha = 1;
     fctx.save();
     fctx.translate(W / 2, H / 2);
-    fctx.rotate((reduce ? 0.0005 : 0.003) + st.spin * 0.02);
-    const z = 1.012 + st.kick * 0.02 + st.expose * 0.025;
+    fctx.rotate((reduce ? 0.0005 : 0.003 + st.progress * 0.002) + st.spin * 0.02);
+    const z = 1.012 + st.kick * 0.02 + tension * 0.025 + st.progress * 0.004;
     fctx.scale(z, z);
     fctx.translate(-W / 2, -H / 2);
     fctx.drawImage(fb, 0, 0);
@@ -364,7 +508,7 @@
     sctx.fillStyle = rgb(st.tint);
     sctx.fillRect(0, 0, W, H);
 
-    const glow = 0.12 + st.kick * 0.22 + st.expose * 0.3;
+    const glow = 0.12 + st.kick * 0.22 + tension * 0.3 + st.progress * 0.06;
     const gr = sctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.min(W, H) * 0.7);
     gr.addColorStop(0, rgb(st.tint, glow));
     gr.addColorStop(1, rgb(st.tint, 0));
@@ -376,9 +520,14 @@
     gctx.fillStyle = 'rgba(0,0,0,0.02)';
     gctx.fillRect(0, 0, W, H);
     sctx.globalCompositeOperation = 'source-over';
-    sctx.globalAlpha = Math.max(0.1, (idle ? 0.8 : 0.86) - st.expose * 0.5 - st.kick * 0.12);
+    sctx.globalAlpha = Math.max(0.1, (idle ? 0.8 : 0.86) - tension * 0.5 - st.kick * 0.12);
     sctx.drawImage(fog, 0, 0);
     sctx.globalAlpha = 1;
+
+    if (st.bld > 0.02 && st.building !== 1) {
+      sctx.fillStyle = `rgba(0,0,0,${(0.45 * st.bld).toFixed(3)})`;
+      sctx.fillRect(0, 0, W, H);
+    }
 
     const p2 = performance.now();
     prof.compose = prof.compose * 0.9 + (p2 - p1) * 0.1;
