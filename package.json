@@ -1,0 +1,6 @@
+{
+  "name": "squidgysqueegee",
+  "private": true,
+  "description": "A small browser instrument.",
+  "scripts": { "test": "node --test tests/logic.test.js", "serve": "python -m http.server 5173", "stamp": "node tools/stamp.js" }
+}
