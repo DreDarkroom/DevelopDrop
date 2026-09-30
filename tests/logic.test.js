@@ -179,8 +179,8 @@ test('snapshots contain only what their kind promises', () => {
   const { S } = seqWorld();
   assert.deepEqual(Object.keys(S.snapshot('pattern')).sort(), ['app', 'kind', 'pattern', 'version']);
   assert.deepEqual(Object.keys(S.snapshot('drums')).sort(), ['app', 'drummers', 'kind', 'version']);
-  assert.deepEqual(Object.keys(S.snapshot('sound')).sort(), ['app', 'drift', 'kind', 'light', 'params', 'swing', 'version']);
-  assert.deepEqual(Object.keys(S.snapshot('loop')).sort(), ['app', 'drift', 'drummers', 'kind', 'light', 'params', 'pattern', 'swing', 'version']);
+  assert.deepEqual(Object.keys(S.snapshot('sound')).sort(), ['app', 'dnb', 'drift', 'kind', 'kit', 'light', 'params', 'scene', 'swing', 'version']);
+  assert.deepEqual(Object.keys(S.snapshot('loop')).sort(), ['app', 'dnb', 'drift', 'drummers', 'kind', 'kit', 'light', 'params', 'pattern', 'scene', 'swing', 'version']);
 });
 
 test('a full loop round-trips and old files with no kind still load', () => {
@@ -242,7 +242,7 @@ test('out-of-range values are clamped, hostile drummer entries ignored', () => {
   const d1 = JSON.stringify(S.drummers[1]);
   const light = S.light, swing = S.swing;
   assert.equal(S.apply(j), true);
-  assert.deepEqual([A.params.tempo, A.params.cutoff, S.drift], [160, 0, 1]);
+  assert.deepEqual([A.params.tempo, A.params.cutoff, S.drift], [200, 0, 1]);
   assert.equal(S.swing, swing);
   assert.equal(S.light, light);
   assert.equal(JSON.stringify(S.drummers[1]), d1);

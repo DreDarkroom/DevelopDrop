@@ -1,20 +1,22 @@
-/* SquidgySqueegee — audio engine.
-   One mono analogue-style voice (2 saws + square sub -> tanh drive -> 24dB ladder-ish filter),
-   three drum voices, and a tray (echo + room) they can all be dipped in. */
+/* Audio engine.
+   One mono analogue-style bass voice (2 saws + square sub -> drive -> 24dB ladder-ish filter, ducked by the kick),
+   drum kits, builds and drops (master filters, riser, gap, impact), and a tray (echo + room) everything can be dipped in. */
 (function (SS) {
   'use strict';
 
   const A = (SS.audio = { ready: false });
   const P = (A.params = {
-    cutoff: 0.42, reso: 0.4, decay: 0.38, drive: 0.3, glide: 0.18, space: 0.3,
-    tempo: 119, mod: 0.5, lift: 0, breath: 0, root: 45,
+    cutoff: 0.42, reso: 0.4, decay: 0.38, drive: 0.22, glide: 0.18, space: 0.3,
+    tempo: 119, mod: 0.5, lift: 0, breath: 0, root: 45, level: 0.75, duck: 0.5,
   });
 
   const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
   const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
   const cutHz = (x) => 50 * Math.pow(2, clamp(x, 0, 1) * 7.6); // 0..1 -> 50Hz..~9.7kHz
 
-  let ctx, dry, fxIn, comp, limiter, guard, analyser, bins, noiseBuf, voice, echo, squeak, rise, mediaDest;
+  let ctx, dry, fxIn, comp, master, mhp, mlp, gapGain, limiter, guard, analyser, bins, noiseBuf, voice, echo, squeak, rise, mediaDest;
+  let bassDuck, riser = null, openHat = null;
+  const mstate = { hp: 20, lp: 20000 };          // where the master filters are heading (for chaining sweeps)
 
   A.now = () => (ctx ? ctx.currentTime : 0);
   A.ctx = () => ctx;
@@ -37,6 +39,31 @@
 
   A.info = () => (ctx ? { state: ctx.state, sampleRate: ctx.sampleRate, baseLatency: ctx.baseLatency, outputLatency: ctx.outputLatency || 0 } : null);
 
+  /* ---------------- kits: the character of the three drummers ---------------- */
+  A.kitNames = ['safelight', 'electro', 'minimal', 'rave', 'dnb'];
+  A.kits = {
+    // soft and round: the default
+    safelight: { kick: { f0: 150, f1: 46, sweep: 0.11, decay: 0.45, click: 0.18, sub: 0.25 }, snare: { nf: 1800, nq: 0.9, nd: 0.15, ng: 0.45, tf0: 185, tf1: 140, td: 0.1, tg: 0.35, clap: false, send: 0.18 }, hat: { hp: 7500, cd: 0.04, od: 0.2, g: 0.26, metal: false } },
+    // punchy and gated, clap on the snare, metallic hats
+    electro: { kick: { f0: 180, f1: 52, sweep: 0.07, decay: 0.32, click: 0.3, sub: 0.12 }, snare: { nf: 2100, nq: 0.8, nd: 0.17, ng: 0.4, tf0: 200, tf1: 160, td: 0.09, tg: 0.3, clap: true, send: 0.15 }, hat: { hp: 7000, cd: 0.035, od: 0.18, g: 0.2, metal: true } },
+    // dry and clicky
+    minimal: { kick: { f0: 120, f1: 58, sweep: 0.05, decay: 0.22, click: 0.35, sub: 0.1 }, snare: { nf: 3200, nq: 1.6, nd: 0.07, ng: 0.4, tf0: 320, tf1: 260, td: 0.05, tg: 0.25, clap: false, send: 0.08 }, hat: { hp: 9000, cd: 0.022, od: 0.12, g: 0.22, metal: false } },
+    // big: long kick, wide snare, open metallic hats
+    rave: { kick: { f0: 165, f1: 42, sweep: 0.13, decay: 0.55, click: 0.22, sub: 0.3 }, snare: { nf: 1500, nq: 0.7, nd: 0.26, ng: 0.5, tf0: 175, tf1: 130, td: 0.14, tg: 0.3, clap: true, send: 0.3 }, hat: { hp: 6500, cd: 0.05, od: 0.3, g: 0.24, metal: true } },
+    // tight and cracking
+    dnb: { kick: { f0: 160, f1: 50, sweep: 0.06, decay: 0.26, click: 0.28, sub: 0.2 }, snare: { nf: 2600, nq: 1, nd: 0.12, ng: 0.5, tf0: 240, tf1: 190, td: 0.08, tg: 0.35, clap: false, send: 0.15 }, hat: { hp: 8500, cd: 0.03, od: 0.12, g: 0.2, metal: false } },
+  };
+  let kit = A.kits.safelight;
+  A.kitName = 'safelight';
+
+  A.setKit = function (name) {
+    if (!A.kits[name]) return false;
+    kit = A.kits[name];
+    A.kitName = name;
+    if (ctx) hook(ctx.currentTime, 15, A.kitNames.indexOf(name));
+    return true;
+  };
+
   A.init = async function () {
     if (ctx) return ctx.resume();
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -53,8 +80,16 @@
     comp.ratio.value = 4;
     comp.attack.value = 0.008;
     comp.release.value = 0.22;
-    const master = ctx.createGain();
-    master.gain.value = 0.85;
+    master = ctx.createGain();
+    master.gain.value = P.level * 0.9;
+    // Builds and drops act on the whole mix: a high-pass that thins it out, a low-pass that muffles it, and a gap (brief silence).
+    mhp = ctx.createBiquadFilter();
+    mhp.type = 'highpass';
+    mhp.frequency.value = 20;
+    mlp = ctx.createBiquadFilter();
+    mlp.type = 'lowpass';
+    mlp.frequency.value = 20000;
+    gapGain = ctx.createGain();
     // Two lines of defence for a loud PA and for recordings. 1) a fast compressor catches most peaks. It is not a true
     // brick-wall (a live test still hit full scale under extreme settings), so 2) a soft-clip guard follows it: untouched
     // below about -3 dBFS, then a smooth curve that can never exceed 0.97, so nothing reaches the speakers or a file clipped.
@@ -69,14 +104,17 @@
     guard = ctx.createWaveShaper();
     guard.curve = guardCurve();
     guard.oversample = '4x';
-    limiter.connect(guardIn);
-    guardIn.connect(guard);
     analyser = ctx.createAnalyser();
     analyser.fftSize = 1024;
     analyser.smoothingTimeConstant = 0.7;
     bins = new Uint8Array(analyser.frequencyBinCount);
     comp.connect(master);
-    master.connect(limiter);
+    master.connect(mhp);
+    mhp.connect(mlp);
+    mlp.connect(gapGain);
+    gapGain.connect(limiter);
+    limiter.connect(guardIn);
+    guardIn.connect(guard);
     guard.connect(analyser);
     analyser.connect(ctx.destination);
 
@@ -142,7 +180,7 @@
     return buf;
   }
 
-  /* ---- the voice ---- */
+  /* ---- the bass voice ---- */
   function driveCurve(d) {
     const n = 512, c = new Float32Array(n), k = 1 + d * 10, norm = Math.tanh(k);
     for (let i = 0; i < n; i++) c[i] = Math.tanh(k * ((i / (n - 1)) * 2 - 1)) / norm;
@@ -158,8 +196,9 @@
     o2.detune.value = 9;
     sub.type = 'square';
 
+    // quieter than before (the bass used to swamp the drums): about 3.5 dB down, with the sub carrying less of it
     const mix = ctx.createGain();
-    for (const [o, lvl] of [[o1, 0.34], [o2, 0.34], [sub, 0.28]]) {
+    for (const [o, lvl] of [[o1, 0.22], [o2, 0.22], [sub, 0.17]]) {
       const g = ctx.createGain();
       g.gain.value = lvl;
       o.connect(g);
@@ -176,14 +215,21 @@
     f1.frequency.value = f2.frequency.value = cutHz(P.cutoff);
     const vca = ctx.createGain();
     vca.gain.value = 0;
+    // the kick ducks the bass for a moment (like sidechain compression), so the two stop fighting for the same low end
+    bassDuck = ctx.createGain();
+    const rumble = ctx.createBiquadFilter();       // nothing useful below ~36 Hz: it only eats headroom
+    rumble.type = 'highpass';
+    rumble.frequency.value = 36;
     const send = ctx.createGain();
 
     mix.connect(shaper);
     shaper.connect(f1);
     f1.connect(f2);
     f2.connect(vca);
-    vca.connect(dry);
-    vca.connect(send);
+    vca.connect(bassDuck);
+    bassDuck.connect(rumble);
+    rumble.connect(dry);
+    rumble.connect(send);
     send.connect(fxIn);
 
     voice = { o1, o2, sub, f1, f2, vca, send, shaper };
@@ -199,6 +245,7 @@
     else if (k === 'drive') voice.shaper.curve = driveCurve(val);
     else if (k === 'space') voice.send.gain.setTargetAtTime(val * 0.9, t, 0.02);
     else if (k === 'tempo') echo.delayTime.setTargetAtTime((0.75 * 60) / val, t, 0.05);
+    else if (k === 'level') master.gain.setTargetAtTime(val * 0.9, t, 0.02);
   };
 
   A.noteOn = function (t, midi, vel, accent, baseOverride) {
@@ -259,49 +306,93 @@
     f.connect(g);
     route(g, o.send || 0);
     src.start(t, Math.random() * 1.5, o.dur + 0.05);
+    return g;
+  }
+
+  function tone(t, type, f0, f1, sweep, dur, gain, send) {
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(f0, t);
+    if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + sweep);
+    g.gain.setValueAtTime(gain, t);
+    g.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+    o.connect(g);
+    route(g, send || 0);
+    o.start(t);
+    o.stop(t + dur + 0.02);
+  }
+
+  /** The bass dips as the kick lands, then swells back: keeps the low end clear (depth = the Duck setting). */
+  function duckAt(t) {
+    if (!bassDuck || P.duck <= 0) return;
+    const low = 1 - P.duck * 0.7;
+    const g = bassDuck.gain;
+    g.cancelScheduledValues(t);
+    g.setValueAtTime(low, t);
+    g.linearRampToValueAtTime(1, t + 0.16);
   }
 
   A.kick = function (t, vel = 1) {
     if (!ctx) return;
     hook(t, 2, r2(vel));
     kickImpl(t, vel);
+    duckAt(t);
   };
 
   function kickImpl(t, vel) {
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.frequency.setValueAtTime(170, t);
-    o.frequency.exponentialRampToValueAtTime(44, t + 0.11);
-    g.gain.setValueAtTime(vel, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
-    o.connect(g);
-    route(g, 0);
-    o.start(t);
-    o.stop(t + 0.52);
-    burst(t, { type: 'highpass', freq: 2500, dur: 0.012, gain: 0.25 * vel });
+    const k = kit.kick;
+    tone(t, 'sine', k.f0, k.f1, k.sweep, k.decay, vel, 0);
+    if (k.sub) tone(t, 'sine', k.f1 * 0.9, k.f1 * 0.9, 0, k.decay * 1.4, vel * k.sub, 0);
+    burst(t, { type: 'highpass', freq: 2500, dur: 0.012, gain: k.click * vel });
   }
 
   A.snare = function (t, vel = 1) {
     if (!ctx) return;
     hook(t, 3, r2(vel));
-    burst(t, { type: 'bandpass', freq: 1900, q: 0.9, dur: 0.16, gain: 0.55 * vel, send: 0.18 * P.space });
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.type = 'triangle';
-    o.frequency.setValueAtTime(190, t);
-    o.frequency.exponentialRampToValueAtTime(140, t + 0.08);
-    g.gain.setValueAtTime(0.4 * vel, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
-    o.connect(g);
-    route(g, 0);
-    o.start(t);
-    o.stop(t + 0.13);
+    const s = kit.snare;
+    burst(t, { type: 'bandpass', freq: s.nf, q: s.nq, dur: s.nd, gain: s.ng * vel, send: s.send * P.space });
+    tone(t, 'triangle', s.tf0, s.tf1, 0.08, s.td, s.tg * vel, 0);
+    if (s.clap) {                                   // three quick slaps, then the tail: a hand clap layered on the snare
+      for (const [dt, d] of [[0, 0.03], [0.011, 0.03], [0.022, 0.14]]) burst(t + dt, { type: 'bandpass', freq: 1300, q: 1.1, dur: d, gain: 0.3 * vel, send: s.send * P.space });
+    }
   };
+
+  const METAL = [205.3, 304.4, 369.6, 522.7, 540, 800];   // the classic "808" set of square-wave ratios: a metallic, inharmonic shimmer
 
   A.hat = function (t, vel = 1, open) {
     if (!ctx) return;
     hook(t, 4, r2(vel), open ? 1 : 0);
-    burst(t, { type: 'highpass', freq: 7500, dur: open ? 0.22 : 0.045, gain: (open ? 0.22 : 0.3) * vel });
+    const h = kit.hat, dur = open ? h.od : h.cd;
+    if (openHat) {                                    // any new hat chokes an open one, as on a real hi-hat
+      openHat.gain.cancelScheduledValues(t);
+      openHat.gain.setTargetAtTime(0, t, 0.005);
+      openHat = null;
+    }
+    let g;
+    if (h.metal) {
+      const mix = ctx.createGain();
+      const hp = ctx.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.value = h.hp;
+      g = ctx.createGain();
+      g.gain.setValueAtTime(h.g * vel * 0.6, t);
+      g.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+      for (const f of METAL) {
+        const o = ctx.createOscillator();
+        o.type = 'square';
+        o.frequency.value = f * 2;
+        o.connect(mix);
+        o.start(t);
+        o.stop(t + dur + 0.02);
+      }
+      mix.connect(hp);
+      hp.connect(g);
+      route(g, 0);
+    } else {
+      g = burst(t, { type: 'highpass', freq: h.hp, dur, gain: (open ? h.g * 0.8 : h.g) * vel * 1.15 });
+    }
+    if (open) openHat = g;
   };
 
   /* ---- the squeegee's squeak: filtered noise following the drag ---- */
@@ -334,7 +425,115 @@
     squeak.bp.frequency.setTargetAtTime(900 + x * 2800, t, 0.03);
   };
 
-  /* ---- exposure: hold to build a riser, release for the drop ---- */
+  /* ---------------- builds and drops ---------------- */
+
+  /** Move a master filter to `toHz`: over `dur` seconds starting at time t (dur 0 = at once). which: 'hp' | 'lp'. */
+  A.sweep = function (which, toHz, t, dur) {
+    if (!ctx) return;
+    hook(t, 11, which === 'hp' ? 0 : 1, Math.round(clamp(toHz, 10, 20000)), r2(dur));
+    sweepImpl(which, toHz, t, dur);
+  };
+
+  // the same move without recording it: a riser already records itself, and replaying both would sweep twice
+  function sweepImpl(which, toHz, t, dur) {
+    const node = which === 'hp' ? mhp : mlp;
+    const from = mstate[which];
+    toHz = clamp(toHz, 10, 20000);
+    node.frequency.cancelScheduledValues(t);
+    node.frequency.setValueAtTime(from, t);
+    if (dur > 0) node.frequency.exponentialRampToValueAtTime(toHz, t + dur);
+    else node.frequency.setValueAtTime(toHz, t);
+    mstate[which] = toHz;
+  }
+
+  /** A brief silence (the breath before a drop). */
+  A.gap = function (t, dur) {
+    if (!ctx) return;
+    hook(t, 12, r2(dur));
+    const g = gapGain.gain;
+    g.cancelScheduledValues(t);
+    g.setValueAtTime(1, t);
+    g.linearRampToValueAtTime(0, t + 0.012);
+    g.setValueAtTime(0, t + dur);
+    g.linearRampToValueAtTime(1, t + dur + 0.004);
+  };
+
+  /** The hit of a drop: a sub boom that falls, and a crash. size 0..2 (1 = normal). */
+  A.impact = function (t, size = 1) {
+    if (!ctx) return;
+    hook(t, 13, r2(size));
+    tone(t, 'sine', 78, 24, 0.85, 1.25, 0.95 * size, 0);
+    tone(t, 'sine', 39, 24, 0.85, 1.6, 0.6 * size, 0);
+    burst(t, { type: 'highpass', freq: 2600, dur: 1.9, gain: 0.3 * size, send: 0.5 });
+    burst(t, { type: 'bandpass', freq: 900, q: 0.6, dur: 0.5, gain: 0.25 * size, send: 0.3 });
+  };
+
+  /**
+   * The riser that goes with a build. variant 0 "lift": noise climbing while the mix thins out (high-pass rising).
+   * variant 1 "sink": the mix goes under water (low-pass falling toward nothing) while a low rumble swells.
+   * on=false at time t stops it.
+   */
+  A.riser = function (on, variant, t) {
+    if (!ctx) return;
+    if (t == null) t = ctx.currentTime;
+    hook(t, 14, on ? 1 : 0, variant ? 1 : 0);
+    if (on && !riser) {
+      let rumble = null, rumbleGain = null;
+      const src = ctx.createBufferSource();
+      src.buffer = noiseBuf;
+      src.loop = true;
+      const bp = ctx.createBiquadFilter();
+      const g = ctx.createGain();
+      bp.type = 'bandpass';
+      bp.Q.value = variant ? 1.2 : 4;
+      if (variant) {
+        bp.frequency.setValueAtTime(2400, t);
+        bp.frequency.exponentialRampToValueAtTime(260, t + 8);
+        g.gain.setValueAtTime(0.001, t);
+        g.gain.linearRampToValueAtTime(0.14, t + 6);
+        sweepImpl('lp', 160, t, 7);
+        rumble = ctx.createOscillator();              // a low swell underneath: the pressure before a drop
+        rumbleGain = ctx.createGain();
+        rumble.type = 'sine';
+        rumble.frequency.setValueAtTime(38, t);
+        rumble.frequency.linearRampToValueAtTime(52, t + 8);
+        rumbleGain.gain.setValueAtTime(0.0001, t);
+        rumbleGain.gain.linearRampToValueAtTime(0.3, t + 7);
+        rumble.connect(rumbleGain);
+        route(rumbleGain, 0);
+        rumble.start(t);
+      } else {
+        bp.frequency.setValueAtTime(300, t);
+        bp.frequency.exponentialRampToValueAtTime(8000, t + 8);
+        g.gain.setValueAtTime(0.001, t);
+        g.gain.linearRampToValueAtTime(0.18, t + 7);
+        sweepImpl('hp', 1100, t, 9);
+      }
+      src.connect(bp);
+      bp.connect(g);
+      route(g, 0.4);
+      src.start(t);
+      riser = { src, g, rumble, rumbleGain };
+    } else if (!on && riser) {
+      riser.g.gain.cancelScheduledValues(t);
+      riser.g.gain.setTargetAtTime(0, t, 0.03);
+      riser.src.stop(t + 0.3);
+      if (riser.rumble) {
+        riser.rumbleGain.gain.cancelScheduledValues(t);
+        riser.rumbleGain.gain.setTargetAtTime(0, t, 0.03);
+        riser.rumble.stop(t + 0.3);
+      }
+      riser = null;
+    }
+  };
+
+  /** Open both master filters again (the moment of the drop, or cancelling a build). */
+  A.openUp = function (t, dur = 0) {
+    A.sweep('hp', 20, t, dur);
+    A.sweep('lp', 20000, t, dur);
+  };
+
+  /* ---- the original "exposure" riser, kept so older performance files still replay exactly ---- */
   A.expose = function (on) {
     if (!ctx) return;
     const t = ctx.currentTime;

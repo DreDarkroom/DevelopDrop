@@ -11,16 +11,17 @@
    }
    Codes: 0 noteOn(midi,vel,accent,baseHz)  1 noteOff  2 kick(vel)  3 snare(vel)  4 hat(vel,open)  5 param(key,value)
           6 expose(on)  7 light(i)  8 wipe(x,y,px,py normalised)  9 kaleido(n)  10 squeak(speed,x)
+          11 sweep(0=hp|1=lp, toHz, seconds)  12 gap(seconds)  13 impact(size)  14 riser(on, variant)  15 kit(index)  16 scene(index)
    Pure logic, no browser-only APIs except CompressionStream (present in browsers and Node 18+). */
 (function (SS) {
   'use strict';
 
-  const C = { noteOn: 0, noteOff: 1, kick: 2, snare: 3, hat: 4, param: 5, expose: 6, light: 7, wipe: 8, kaleido: 9, squeak: 10 };
-  const SCHEDULED = new Set([C.noteOn, C.noteOff, C.kick, C.snare, C.hat]); // carry a future audio time; the rest happen "now"
+  const C = { noteOn: 0, noteOff: 1, kick: 2, snare: 3, hat: 4, param: 5, expose: 6, light: 7, wipe: 8, kaleido: 9, squeak: 10, sweep: 11, gap: 12, impact: 13, riser: 14, kit: 15, scene: 16 };
+  const SCHEDULED = new Set([C.noteOn, C.noteOff, C.kick, C.snare, C.hat, C.sweep, C.gap, C.impact, C.riser]); // carry a future audio time; the rest happen "now"
   const UNIT = 10000;                                                        // ticks per second (0.1 ms)
   const MAX_EVENTS = 3000000;
   // A Map, not a plain object: a hostile file naming a parameter "__proto__" or "constructor" must not match anything.
-  const PARAM_RANGE = new Map(Object.entries({ cutoff: [0, 1], reso: [0, 1], decay: [0, 1], drive: [0, 1], glide: [0, 1], space: [0, 1], tempo: [80, 160], mod: [0, 1] }));
+  const PARAM_RANGE = new Map(Object.entries({ cutoff: [0, 1], reso: [0, 1], decay: [0, 1], drive: [0, 1], glide: [0, 1], space: [0, 1], tempo: [60, 200], mod: [0, 1], level: [0, 1], duck: [0, 1] }));
   const r = (v, d) => { const k = Math.pow(10, d); return Math.round(v * k) / k; };
 
   /* ---------------- recording ---------------- */
@@ -115,7 +116,19 @@
         if (![0, 1, 2].includes(a[0])) continue;
       } else if (code === C.kaleido) {
         if (![6, 8, 10, 12].includes(a[0])) continue;
-      } else if (code < 0 || code > 10) {
+      } else if (code === C.sweep) {
+        if (![0, 1].includes(a[0]) || !(a[1] >= 10 && a[1] <= 20000) || !(a[2] >= 0 && a[2] <= 60)) continue;
+      } else if (code === C.gap) {
+        if (!(a[0] >= 0 && a[0] <= 2)) continue;
+      } else if (code === C.impact) {
+        if (!(a[0] >= 0 && a[0] <= 3)) continue;
+      } else if (code === C.riser) {
+        if (![0, 1].includes(a[0]) || ![0, 1].includes(a[1])) continue;
+      } else if (code === C.kit) {
+        if (!Number.isInteger(a[0]) || a[0] < 0 || a[0] > 4) continue;
+      } else if (code === C.scene) {
+        if (!Number.isInteger(a[0]) || a[0] < 0 || a[0] > 3) continue;
+      } else if (code < 0 || code > 16) {
         continue;
       }
       out.push({ t: ticks / UNIT, code, a });
