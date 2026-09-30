@@ -1,9 +1,13 @@
 /* SquidgySqueegee — recording and export.
-   Four ways to keep a set:
+   Ways to keep a set:
      wav    24-bit lossless, streamed to disk where the browser allows it (Chrome / Edge), so a long set never fills memory
      mp3    320 kbps, encoded live in a background worker (LAME via lamejs, loaded only when chosen)
      perf   the compact, replayable performance file (.sqz): what the instrument DID, not the sound; play it in player.html
-     video  the picture and the sound together (WebM or MP4, whichever the browser can make)
+     webm   the picture and the sound together as a lean WebM (VP9 + Opus, about 3 Mbps): the everyday video
+     mp4    the same as MP4, where the browser can make one
+     visuals  the picture only, no sound (to lay over a WAV in an editor): the smallest file of all
+     both   a lean WebM and a performance file together (two files that belong to each other)
+     screen the whole page with its controls, captured as this tab (asks the browser's own permission)
    plus a PNG snapshot of the picture. Everything records the FINAL output (after the limiter), exactly what the room hears. */
 (function (SS) {
   'use strict';
@@ -20,25 +24,47 @@
   R.memoryLimit = 1.5 * 1024 * 1024 * 1024;     // bytes a recording may occupy when the browser cannot stream it to disk
 
   R.FORMATS = {
+    webm: { label: 'Video · lean WebM', hint: 'picture and sound, small: about 20 to 25 MB a minute' },
+    visuals: { label: 'Visuals only', hint: 'the picture with no sound, to lay over a WAV in an editor' },
+    both: { label: 'Video + performance', hint: 'a lean WebM and a replayable performance file together (two files)' },
     wav: { label: 'WAV · lossless', hint: '24-bit, about 16 MB a minute' },
     mp3: { label: 'MP3 · 320 kbps', hint: 'about 2.4 MB a minute' },
-    perf: { label: 'Performance', hint: 'a tiny replayable file (a few KB a minute); play it in player.html' },
-    video: { label: 'Video + audio', hint: 'the picture and the sound together' },
+    perf: { label: 'Performance', hint: 'a tiny replayable file (a few KB a minute); play it in the page or in player.html' },
+    mp4: { label: 'Video · MP4', hint: 'picture and sound as MP4, for players that do not take WebM (bigger)' },
+    screen: { label: 'Screen · with controls', hint: 'records this whole tab, panel and all; the browser asks you to allow it' },
   };
 
-  const VIDEO_TYPES = [
-    'video/mp4;codecs=avc1.640028,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4',
-    'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm',
-  ];
-  const videoType = () => (window.MediaRecorder ? VIDEO_TYPES.find((t) => MediaRecorder.isTypeSupported(t)) : null);
+  /* how each video format is made: the source of the picture, whether it has sound, the container, a performance alongside */
+  const VIDEO = {
+    webm: { src: 'canvas', audio: true, box: 'webm' },
+    visuals: { src: 'canvas', audio: false, box: 'webm' },
+    both: { src: 'canvas', audio: true, box: 'webm', perf: true },
+    mp4: { src: 'canvas', audio: true, box: 'mp4' },
+    screen: { src: 'screen', audio: true, box: 'webm' },
+  };
+  const TYPES = {
+    webm: ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'],
+    mp4: ['video/mp4;codecs=avc1.640028,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4'],
+  };
+  const pickType = (box, audio) => {
+    if (!window.MediaRecorder) return null;
+    const list = audio ? TYPES[box] : TYPES[box].map((t) => t.replace(',opus', '').replace(',mp4a.40.2', ''));
+    return list.find((t) => MediaRecorder.isTypeSupported(t)) || null;
+  };
+
+  R.videoBitrate = 3000000;                     // bits a second for the picture: lean by default; the page can offer a sharper setting
 
   R.support = function () {
-    const vt = videoType();
+    const capture = typeof HTMLCanvasElement.prototype.captureStream === 'function';
+    const web = capture && !!pickType('webm', true);
     return {
       disk: typeof window.showSaveFilePicker === 'function',
       mp3: typeof Worker !== 'undefined',
-      video: !!vt && typeof HTMLCanvasElement.prototype.captureStream === 'function',
-      videoType: vt ? (vt.startsWith('video/mp4') ? 'MP4' : 'WebM') : null,
+      webm: web,
+      visuals: capture && !!pickType('webm', false),
+      both: web,
+      mp4: capture && !!pickType('mp4', true),
+      screen: !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) && !!pickType('webm', true),
     };
   };
 
@@ -165,7 +191,7 @@ onmessage=(e)=>{const d=e.data;
     if (!f) throw new Error('unknown format');
     const sup = R.support();
     const sr = A.ctx().sampleRate;
-    let sink, capture, worker, mr, chain = Promise.resolve(), bytes = 0, vt;
+    let sink, psink = null, capture, worker, mr, extra = null, chain = Promise.resolve(), bytes = 0, vt;
     const enqueue = (u8) => {
       bytes += u8.length;
       R.state.bytes = bytes;
@@ -179,7 +205,7 @@ onmessage=(e)=>{const d=e.data;
 
     try {
       if (format === 'wav') {
-        sink = await openSink(`squidgysqueegee-${stamp()}.wav`, 'audio/wav', 'wav', 'WAV audio');
+        sink = await openSink(`${SS.config.slug}-${stamp()}.wav`, 'audio/wav', 'wav', 'WAV audio');
         await sink.write(SS.wav.header(sr, 2, 24, 0));
         capture = await makeCapture((l, r) => {
           if (bytes > SS.wav.MAX_DATA_BYTES - 1e6) { R.stop('the file reached the 4 GB limit of the WAV format'); return; }
@@ -188,28 +214,48 @@ onmessage=(e)=>{const d=e.data;
       } else if (format === 'mp3') {
         if (!sup.mp3) throw new Error('this browser cannot encode MP3 in the background; use WAV');
         worker = await mp3Worker(sr);
-        sink = await openSink(`squidgysqueegee-${stamp()}.mp3`, 'audio/mpeg', 'mp3', 'MP3 audio');
+        sink = await openSink(`${SS.config.slug}-${stamp()}.mp3`, 'audio/mpeg', 'mp3', 'MP3 audio');
         let finished;
         const done = new Promise((res) => { finished = res; });
         worker.onmessage = (e) => { if (e.data.mp3 && e.data.mp3.length) enqueue(e.data.mp3); if (e.data.end) finished(); };
         capture = await makeCapture((l, r) => worker.postMessage({ l, r }, [l.buffer, r.buffer]));
         job = { done, worker };
       } else if (format === 'perf') {
-        sink = await openSink(`squidgysqueegee-${stamp()}.sqz`, 'application/octet-stream', 'sqz', 'SquidgySqueegee performance');
+        sink = await openSink(`${SS.config.slug}-${stamp()}.sqz`, 'application/octet-stream', 'sqz', 'SquidgySqueegee performance');
         SS.perf.start(A.now(), SS.seq.snapshot('loop'));
         A.hook = SS.perf.log;
-      } else if (format === 'video') {
-        if (!sup.video) throw new Error('this browser cannot record video from the page');
-        vt = videoType();
-        const ext = vt.startsWith('video/mp4') ? 'mp4' : 'webm';
-        sink = await openSink(`squidgysqueegee-${stamp()}.${ext}`, vt.split(';')[0], ext, 'Video');
-        const ms = new MediaStream([...document.getElementById('stage').captureStream(30).getVideoTracks(), ...A.stream().getAudioTracks()]);
-        mr = new MediaRecorder(ms, { mimeType: vt, videoBitsPerSecond: 10000000, audioBitsPerSecond: 256000 });
+      } else if (VIDEO[format]) {
+        const cfg = VIDEO[format];
+        if (!sup[format]) throw new Error('this browser cannot record that kind of video; try WAV or Performance');
+        vt = pickType(cfg.box, cfg.audio);
+        const ext = cfg.box;
+        let picture;
+        if (cfg.src === 'screen') {
+          // the whole tab, panel and all. The browser shows its own "share this tab" prompt; nothing is sent anywhere.
+          const disp = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: false, preferCurrentTab: true, selfBrowserSurface: 'include' });
+          picture = disp.getVideoTracks();
+          extra = disp;
+          picture[0].addEventListener('ended', () => { if (R.state.active) R.stop('screen sharing was ended').catch(() => {}); });
+        } else {
+          picture = document.getElementById('stage').captureStream(30).getVideoTracks();
+        }
+        sink = await openSink(`${SS.config.slug}-${stamp()}.${ext}`, vt.split(';')[0], ext, 'Video');
+        if (cfg.perf) {
+          psink = await openSink(`${SS.config.slug}-${stamp()}.sqz`, 'application/octet-stream', 'sqz', 'SquidgySqueegee performance');
+          SS.perf.start(A.now(), SS.seq.snapshot('loop'));
+          A.hook = SS.perf.log;
+        }
+        const ms = new MediaStream([...picture, ...(cfg.audio ? A.stream().getAudioTracks() : [])]);
+        const opts = { mimeType: vt, videoBitsPerSecond: R.videoBitrate };
+        if (cfg.audio) opts.audioBitsPerSecond = 160000;
+        mr = new MediaRecorder(ms, opts);
         mr.ondataavailable = (e) => { if (e.data && e.data.size) chain = chain.then(async () => { const u8 = new Uint8Array(await e.data.arrayBuffer()); bytes += u8.length; R.state.bytes = bytes; await sink.write(u8); }); };
         mr.start(1000);
       }
     } catch (err) {
       if (sink) await sink.abort();
+      if (psink) await psink.abort();
+      if (extra) extra.getTracks().forEach((t) => t.stop());
       if (worker) worker.terminate();
       A.hook = null;
       if (err && err.name === 'AbortError') return;          // cancelled the save dialog
@@ -217,7 +263,7 @@ onmessage=(e)=>{const d=e.data;
     }
 
     R.state = { active: true, format, label: f.label, startedAt: performance.now(), bytes: 0, name: sink.name, where: sink.kind };
-    job = Object.assign(job || {}, { sink, capture, mr, format, chain: () => chain, bytesNow: () => bytes });
+    job = Object.assign(job || {}, { sink, psink, extra, capture, mr, format, chain: () => chain, bytesNow: () => bytes });
     clearInterval(ticker);
     ticker = setInterval(notify, 500);
     notify();
@@ -234,7 +280,8 @@ onmessage=(e)=>{const d=e.data;
     try {
       if (j.format === 'wav' || j.format === 'mp3') await j.capture.stop();
       if (j.format === 'mp3') { j.worker.postMessage({ end: true }); await j.done; j.worker.terminate(); }
-      if (j.format === 'video') await new Promise((res) => { j.mr.onstop = res; j.mr.stop(); });
+      if (j.mr) await new Promise((res) => { j.mr.onstop = res; j.mr.stop(); });
+      if (j.extra) j.extra.getTracks().forEach((t) => t.stop());
       await j.chain();
       if (j.format === 'wav') header = SS.wav.header(A.ctx().sampleRate, 2, 24, j.bytesNow());   // bytesNow() counts audio data only, not the 44-byte header
       if (j.format === 'perf') {
@@ -244,13 +291,21 @@ onmessage=(e)=>{const d=e.data;
         j.bytesTotal = enc.bytes.length;
       }
       await j.sink.close(header);
+      if (j.psink) {                                          // the performance that goes with the video
+        A.hook = null;
+        const enc = await SS.perf.encode(SS.perf.stop(A.now()));
+        await j.psink.write(enc.bytes);
+        await j.psink.close();
+        j.extraBytes = enc.bytes.length;
+      }
     } catch (err) {
       await j.sink.abort();
+      if (j.psink) await j.psink.abort();
       A.hook = null;
       notify();
       throw err;
     }
-    const result = { name: j.sink.name, bytes: j.format === 'perf' ? j.bytesTotal : j.bytesNow(), seconds: (performance.now() - st.startedAt) / 1000, where: j.sink.kind, reason: reason || null };
+    const result = { name: j.sink.name + (j.psink ? ' + ' + j.psink.name : ''), bytes: (j.format === 'perf' ? j.bytesTotal : j.bytesNow()) + (j.extraBytes || 0), seconds: (performance.now() - st.startedAt) / 1000, where: j.sink.kind, reason: reason || null };
     if (reason && R.onAuto) R.onAuto(result);
     notify();
     return result;
@@ -262,7 +317,7 @@ onmessage=(e)=>{const d=e.data;
     return new Promise((resolve, reject) => {
       c.toBlob((b) => {
         if (!b) return reject(new Error('could not read the picture'));
-        const name = `squidgysqueegee-${stamp()}.png`;
+        const name = `${SS.config.slug}-${stamp()}.png`;
         download(b, name);
         resolve(name);
       }, 'image/png');

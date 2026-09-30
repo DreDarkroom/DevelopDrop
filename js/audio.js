@@ -15,6 +15,8 @@
   const cutHz = (x) => 50 * Math.pow(2, clamp(x, 0, 1) * 7.6); // 0..1 -> 50Hz..~9.7kHz
 
   let ctx, dry, fxIn, comp, master, mhp, mlp, gapGain, limiter, guard, analyser, bins, noiseBuf, voice, echo, squeak, rise, mediaDest;
+  // measured in a browser: the bass alone was about 1.5x the level of everything else together, so it sits ~3.4 dB lower
+  const BASS_TRIM = 0.68;
   let bassDuck, riser = null, openHat = null;
   const mstate = { hp: 20, lp: 20000 };          // where the master filters are heading (for chaining sweeps)
 
@@ -217,6 +219,7 @@
     vca.gain.value = 0;
     // the kick ducks the bass for a moment (like sidechain compression), so the two stop fighting for the same low end
     bassDuck = ctx.createGain();
+    bassDuck.gain.value = BASS_TRIM;
     const rumble = ctx.createBiquadFilter();       // nothing useful below ~36 Hz: it only eats headroom
     rumble.type = 'highpass';
     rumble.frequency.value = 36;
@@ -326,11 +329,11 @@
   /** The bass dips as the kick lands, then swells back: keeps the low end clear (depth = the Duck setting). */
   function duckAt(t) {
     if (!bassDuck || P.duck <= 0) return;
-    const low = 1 - P.duck * 0.7;
+    const low = BASS_TRIM * (1 - P.duck * 0.7);
     const g = bassDuck.gain;
     g.cancelScheduledValues(t);
     g.setValueAtTime(low, t);
-    g.linearRampToValueAtTime(1, t + 0.16);
+    g.linearRampToValueAtTime(BASS_TRIM, t + 0.16);
   }
 
   A.kick = function (t, vel = 1) {

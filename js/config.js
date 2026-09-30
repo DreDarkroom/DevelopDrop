@@ -2,7 +2,10 @@
 (function (SS) {
   'use strict';
   SS.config = {
-    version: '2.0.2',
+    version: '3.0.0',
+    // The project's name and the prefix for saved files. One place, so a rename is one edit.
+    name: 'SquidgySqueegee',
+    slug: 'squidgysqueegee',
     // Where the "suggest" link sends messages. Leave empty and the link simply isn't shown.
     // Use a dedicated alias, never a personal address.
     suggestEmail: '',

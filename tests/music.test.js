@@ -314,3 +314,27 @@ test('the new performance events validate, and hostile versions of them are drop
   ]);
   assert.deepEqual(hostile.events.map((e) => [e.code, ...e.a]), [[5, 'tempo', 200]], 'only the clamped tempo survives');
 });
+
+test('performance files: new event codes validate, hostile ones are dropped, and stateAt tracks kit and scene', () => {
+  const SSp = load('perfrec.js');
+  const P = SSp.perf;
+  const doc = { app: 'SquidgySqueegee', kind: 'performance', version: 1, duration: 5, snapshot: {}, events: [
+    [0, 15, 3], [10, 16, 2], [10, 11, 0, 400, 1.5], [10, 12, 0.1], [10, 13, 1], [10, 14, 1, 1],
+    [10, 15, 9],                 // kit index out of range
+    [10, 16, 7],                 // scene out of range
+    [10, 11, 5, 400, 1],         // bad filter id
+    [10, 12, 99],                // absurd gap
+    [10, 14, 2, 0],              // bad riser flag
+    [10, 99, 1],                 // unknown code
+    [10000, 16, 1], [10000, 15, 4],
+  ] };
+  const out = P.validate(doc);
+  assert.equal(out.events.length, 8);
+  const st = P.stateAt(out.events, 0.5);
+  assert.equal(st.kit, 3);
+  assert.equal(st.scene, 2);
+  const later = P.stateAt(out.events, 2.5);
+  assert.equal(later.kit, 4);
+  assert.equal(later.scene, 1);
+  assert.equal(P.stateAt(out.events, 0).scene, null);
+});

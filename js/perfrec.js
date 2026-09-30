@@ -141,13 +141,15 @@
 
   /** state at time t: the last value of every parameter, the light, kaleidoscope and whether expose is held. */
   perf.stateAt = function (events, t) {
-    const state = { params: {}, light: null, kaleido: null, expose: false };
+    const state = { params: {}, light: null, kaleido: null, expose: false, kit: null, scene: null };
     for (const e of events) {
       if (e.t > t) break;
       if (e.code === C.param) state.params[e.a[0]] = e.a[1];
       else if (e.code === C.light) state.light = e.a[0];
       else if (e.code === C.kaleido) state.kaleido = e.a[0];
       else if (e.code === C.expose) state.expose = !!e.a[0];
+      else if (e.code === C.kit) state.kit = e.a[0];
+      else if (e.code === C.scene) state.scene = e.a[0];
     }
     return state;
   };

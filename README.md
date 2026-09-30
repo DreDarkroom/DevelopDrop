@@ -12,18 +12,37 @@ DreDarkroom, Safelight and SquidgySqueegee are DJ aliases.
 | Input | Does |
 |---|---|
 | `a w s e d f t g y h u j k o l p` | play the bass like a keyboard (`h` is a note, not a shortcut) |
-| hold `space` | build tension; let go for the drop |
+| hold `space` (or hold the right mouse button) | **build**: the music thins out and climbs. Let go and the **drop** lands on the beat |
+| hold `Shift` + `space` (or the middle button) | build the other way: the mix sinks under water |
 | drag on the picture | squeegee the fog: it smears, squeaks and opens the filter |
 | `1` `2` `3` | change the light, which also changes the mode (Aeolian, Dorian, Lydian) |
 | `enter` | play / stop |
+| `z` `x` `v` `b` | mute or bring back kick, snare, hats, bass (right-click a ring too) |
+| `n` / `Shift` + `n` | clear the bass line / the drums (right-click a grid step clears just that step) |
+| `;` `'` | previous / next **style** |
+| `[` `]` / `{` `}` | tempo down / up by 1 / by 0.1. `\` switches the drum and bass range (to 180) |
+| `r` / `Shift` + `r` | record a clip of drums and bass (length set beside the button) / clear clips |
+| `i` | start or stop the **journey** |
+| `m` | MIDI controller panel |
 | `` ` `` (backtick) | hide the panel, keep the title |
 | `c` | clean mode: fullscreen, nothing but the picture. `Esc` to leave |
 | `q` | picture quality (auto, high, medium, low) |
 | `?` | how-to |
 
 Click the bass grid to write a line; click dots on the rings to change the drummers (`−` `+` hits, `‹` `›` loop length).
-The drummers loop at different lengths (16, 12, 14), so the groove only repeats every 336 steps.
+The drummers loop at different lengths, so the groove takes a long time to repeat.
 **Bounce** is swing. **Drift** lets the bass line wander around your loop (quiet ghost hats come and go too); at 0 it is exactly as written.
+**Level** is the overall volume and **Duck** is how far the bass dips under each kick.
+
+**Styles.** The style menu swaps in a whole starting point at the next bar: tempo, drum kit, bass, rings, sound, light and picture.
+There is a slow rolling one, a polyrhythmic minimal one, four-on-the-floor electro, a rave one, drum and bass at 174, *Slow Build* (only kick and hats, bring the rest in yourself) and a blank page.
+They are original patterns written in the spirit of the artists that inspired this project, not copies of anything.
+
+**Build and drop.** *Quantise* chooses where the drop lands after you let go: on the beat, on the bar, or at the next sixteenth (the tightest).
+
+**Journey.** Press `i` (or *journey*): the tempo rises towards the number you choose over 16 to 256 bars, and the picture moves through its four scenes, getting denser as it goes.
+
+**Clips.** *● drums* or *● bass* records 1 to 8 bars from the next bar and loops them. Click a chip to stop or start it, Shift-click to save it as a file, right-click to remove it.
 
 ## Keeping things
 
@@ -31,20 +50,30 @@ The drummers loop at different lengths (16, 12, 14), so the groove only repeats 
 *files ▾* exports and imports loops as small readable `.json` files: everything, or just the bass line, the drums or the sound settings;
 you can also copy a loop to the clipboard and paste it elsewhere. Clearing your browser's site data erases saved loops, so export the ones you love.
 
+**Drag and drop.** Drop a loop `.json`, a clip `.json`, a MIDI map or a `.sqz` performance onto the page. Loops and clips snap in on the next bar. A performance plays in the page itself, with pause and seeking; *back to live* returns you to your own loop.
+
 **Recording.** Pick a format and press *● rec*. It records the final output, after a limiter and a soft-clip guard, so a recording (and your speakers) never see the signal clip.
 
 | Format | What you get |
 |---|---|
+| Video · lean WebM (default) | picture and sound together in a small file, about 20 to 25 MB a minute. A *lean / sharp / full* setting trades size for detail |
+| Visuals only | the picture with no sound, to lay over a WAV in an editor |
+| Video + performance | a lean WebM and a replayable `.sqz` saved together (two files) |
+| Screen · with controls | the whole page, panel and all, for tutorials (the browser asks you to allow it) |
 | WAV, 24-bit | lossless audio, about 16 MB a minute. Streams to disk in Chrome and Edge, so a long set does not fill memory |
 | MP3, 320 kbps | small and universal, about 2.4 MB a minute (encoded live in the background) |
-| Performance (`.sqz`) | a compact recording of *what you did*, not the sound: about 3 KB for 45 seconds, under 100 KB for an hour. Play it in the player |
-| Video + audio | the picture and sound together (MP4 or WebM, whatever your browser can make) |
+| Performance (`.sqz`) | a compact recording of *what you did*, not the sound: a few KB a minute. Plays in the page or in the player |
+| Video · MP4 | picture and sound as MP4, where your browser can make it (bigger) |
 
-*snap* saves a still of the picture.
+*snap* saves a still of the picture. Right-clicks never open a browser menu on this page, so they stay out of screen recordings.
 
-**Player.** `player.html` replays a `.sqz` performance through the same synth and visuals: drop a file on it, or use *play the demo*.
+**Player.** `player.html` is a standalone page that replays a `.sqz` through the same synth and visuals: drop a file on it, or use *play the demo*.
 It has play, pause, seeking and keyboard shortcuts (`space`, `←` `→`, `c`, `f`). A performance can also be linked: `player.html?src=path/to/set.sqz`.
 Because a performance is only events, it can be shared, embedded or archived at almost no size.
+
+**MIDI.** Press `m` and *connect* (Chrome or Edge, on the hosted page or localhost; the browser asks permission first). Then either press *learn* beside an action and touch a control,
+or run *quick map*, which walks through the main controls one by one. Buttons, pads, absolute knobs and endless (relative) encoders are supported; mappings are kept in the browser and can be saved and loaded.
+For a Traktor Kontrol X1 MK2, Native Instruments' manual says to hold SHIFT and press both LOAD buttons to switch it to plain MIDI mode first. This has been built and tested against simulated controllers: real hardware reports are welcome.
 
 ## Streaming and OBS
 
@@ -64,7 +93,7 @@ The beat is timed on a background thread, so it stays steady even if the window 
 
 ## Roadmap and ideas
 
-See [ROADMAP.md](ROADMAP.md): MIDI controllers, a guided tutorial, live sharing and more. Suggestions are welcome (the how-to card has a link when one is set up).
+See [ROADMAP.md](ROADMAP.md): a phone as a remote control, an installable app (PWA and Android), more MIDI, a guided tutorial, live sharing and more. Suggestions are welcome (the how-to card has a link when one is set up).
 
 ## For developers
 
@@ -73,16 +102,18 @@ Plain HTML, CSS and JavaScript: no build step, no framework. Serve the folder (`
 ```
 index.html, player.html
 css/style.css
-js/audio.js     synth, drums, echo/room, safety limiter, recording taps
-js/seq.js       look-ahead scheduler on a background thread, drummers, drift, loop files
-js/visual.js    scene -> kaleidoscope -> feedback tunnel -> tint -> fog; quality manager
-js/recorder.js  WAV / MP3 / performance / video capture, PNG snapshot
+js/audio.js     synth, drum kits, bass ducking, builds and drops, echo/room, safety limiter, recording taps
+js/seq.js       look-ahead scheduler on a background thread, drummers, styles, builds and drops, clips, journey, loop files
+js/visual.js    four scenes -> kaleidoscope -> feedback tunnel -> tint -> fog; progression; quality manager
+js/recorder.js  WAV / MP3 / performance / video (WebM, MP4, visuals, screen) capture, PNG snapshot
 js/perfrec.js   the .sqz performance format (record, encode, validate, schedule)
 js/wav.js       WAV header and PCM conversion (pure)
-js/player.js    the performance player
-js/ui.js        controls, keyboard, files menu, help
+js/playback.js  replays a performance (used by the player page and by the instrument)
+js/player.js    the standalone player page
+js/midi.js      Web MIDI: learn, mappings, relative encoders (no DOM)
+js/ui.js        controls, keyboard, pointer, drag and drop, MIDI panel, help
 examples/demo.sqz
-tests/          node --test tests/logic.test.js
+tests/          node --test tests/logic.test.js tests/music.test.js tests/midi.test.js
 ```
 
 Releasing: change `version` in `js/config.js`, then run `node tools/stamp.js`. It tags every script and stylesheet reference with the version so

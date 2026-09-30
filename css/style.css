@@ -190,8 +190,100 @@ body.recording #recinfo { color: #fff; }
 }
 #debug[hidden] { display: none; }
 
+/* ---- v3 additions ---- */
+#mast #dre { pointer-events: auto; cursor: default; font-weight: 600; }
+#armed {
+  position: fixed; top: 34px; right: 60px; z-index: 5; margin: 0; font-size: 9px; color: #fff; letter-spacing: 0.22em;
+  pointer-events: none; animation: pulse 0.9s ease-in-out infinite;
+}
+#armed[hidden] { display: none; }
+body:not(.lit) #armed, body.bare #armed { display: none; }
+
+#light { min-width: 170px; }
+#stylewrap select, #tempo select { width: 100%; }
+#style, #tools select, #pbar button {
+  background: rgba(5, 0, 0, 0.9); color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 4px; height: 22px; padding: 0 6px;
+}
+#style { width: 100%; }
+#style option { background: #120000; color: #ffd6cf; text-transform: none; }
+#tempo { display: flex; flex-direction: column; gap: 6px; }
+.temporow { display: flex; align-items: center; gap: 6px; }
+.temporow input[type="number"] {
+  width: 7ch; height: 22px; background: rgba(5, 0, 0, 0.9); color: inherit; border: 1px solid var(--line); border-radius: 4px;
+  font: inherit; letter-spacing: 0; text-align: right; padding: 0 4px;
+}
+.temporow button { height: 22px; padding: 0 8px; background: none; border: 1px solid var(--line); border-radius: 4px; }
+.temporow button[aria-pressed="true"] { border-color: var(--tint); background: rgba(var(--tint-rgb), 0.22); color: #fff; }
+.temporow button:hover { border-color: var(--tint); }
+
+#mutes button, #clips button.chip { min-width: 0; }
+#tools button[aria-pressed="true"].mute { border-color: var(--dim); color: var(--dim); text-decoration: line-through; background: rgba(0, 0, 0, 0.4); }
+#tools button.armed { border-color: #fff; color: #fff; animation: pulse 1s ease-in-out infinite; }
+#tools button.holding { border-color: #fff; background: rgba(var(--tint-rgb), 0.5); color: #fff; }
+#clips { display: inline-flex; gap: 4px; }
+#clips .chip { border-color: var(--tint); }
+#clips .chip.off { border-color: var(--line); color: var(--dim); }
+.drummer.muted svg { opacity: 0.35; }
+.drummer.muted .info { text-decoration: line-through; }
+#roll.muted { opacity: 0.35; }
+
+/* small popover cards (journey, MIDI) */
+#journeypop, #midipanel {
+  position: fixed; z-index: 9; padding: 14px 16px 12px; background: rgba(5, 0, 0, 0.95); border: 1px solid var(--line); border-radius: 12px;
+  text-transform: none; letter-spacing: 0.02em; font-size: 12px; line-height: 1.6; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+}
+#journeypop { bottom: 92px; right: 24px; width: min(330px, calc(100vw - 36px)); }
+#midipanel { top: 48px; right: 18px; width: min(520px, calc(100vw - 36px)); max-height: calc(100vh - 84px); overflow: auto; }
+#journeypop[hidden], #midipanel[hidden] { display: none; }
+.card h3 { margin: 0 0 8px; font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--dim); font-weight: 400; }
+.card p { margin: 6px 0; color: rgba(255, 220, 214, 0.86); }
+.card .row { display: flex; align-items: center; gap: 8px; margin: 8px 0; flex-wrap: wrap; }
+.card label { display: flex; align-items: center; gap: 6px; }
+.card button, .card select, .card input[type="number"] {
+  background: rgba(5, 0, 0, 0.9); color: inherit; font: inherit; letter-spacing: 0.06em; text-transform: none;
+  border: 1px solid var(--line); border-radius: 4px; height: 24px; padding: 0 8px;
+}
+.card input[type="number"] { width: 8ch; }
+.card button:hover { border-color: var(--tint); background: rgba(var(--tint-rgb), 0.14); }
+.card .close { position: absolute; top: 6px; right: 8px; border: 0; background: none; font-size: 18px; width: 24px; padding: 0; }
+.card table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 11px; }
+.card td { padding: 3px 4px; border-top: 1px solid rgba(var(--tint-rgb), 0.12); vertical-align: middle; }
+.card td.k { color: var(--dim); font-family: var(--mono); white-space: nowrap; }
+.card td button { height: 20px; font-size: 10px; padding: 0 6px; }
+.card tr.listening td { background: rgba(var(--tint-rgb), 0.18); }
+.card .mon { font-family: var(--mono); font-size: 10px; color: var(--dim); min-height: 3.2em; white-space: pre; }
+.card .group-h { color: var(--tint); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; padding-top: 10px; }
+
+/* playback bar on the instrument page */
+#pbar {
+  position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 7; display: flex; align-items: center; gap: 14px; padding: 10px 14px;
+  background: rgba(5, 0, 0, 0.82); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  border: 1px solid var(--line); border-radius: 12px;
+}
+#pbar[hidden] { display: none; }
+#pbar input[type="range"] { flex: 1; }
+#ptime { font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--dim); min-width: 13ch; text-align: right; }
+#pplay { width: 40px; padding: 0; }
+body.playback #panel { opacity: 0; pointer-events: none; transform: translateY(16px); }
+body.clean #pbar { opacity: 0; pointer-events: none; }
+
+/* drag and drop */
+#dropzone {
+  position: fixed; inset: 10px; z-index: 12; display: flex; align-items: center; justify-content: center; text-align: center;
+  border: 2px dashed var(--tint); border-radius: 18px; background: rgba(var(--tint-rgb), 0.08); pointer-events: none;
+}
+#dropzone[hidden] { display: none; }
+#dropzone p { margin: 0; font-size: 14px; letter-spacing: 0.22em; color: #fff; }
+
+/* the darkroom, for those who look: everything goes through one red safelight */
+body.darkroom::before {
+  content: ""; position: fixed; inset: 0; z-index: 4; pointer-events: none; background: rgb(255, 38, 8); mix-blend-mode: multiply;
+}
+body.darkroom { --tint-rgb: 255, 52, 32; }
+
 /* clean stream mode: only the picture (and the vignette) remain */
-body.clean #panel, body.clean #mast, body.clean #hint, body.clean #helpbtn, body.clean #help, body.clean #toast, body.clean #notice { opacity: 0; pointer-events: none; transition: opacity 0.4s; }
+body.clean #panel, body.clean #pbar, body.clean #journeypop, body.clean #midipanel, body.clean #armed, body.clean #mast, body.clean #hint, body.clean #helpbtn, body.clean #help, body.clean #toast, body.clean #notice { opacity: 0; pointer-events: none; transition: opacity 0.4s; }
 body.clean #stage { cursor: none; }
 
 @media (max-width: 1200px) {

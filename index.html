@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SquidgySqueegee</title>
   <meta name="description" content="A small instrument for Safelight. DreDarkroom, Safelight and SquidgySqueegee are DJ aliases.">
-  <link rel="stylesheet" href="css/style.css?v=2.0.2">
+  <link rel="stylesheet" href="css/style.css?v=3.0.0">
 </head>
 <body>
-  <canvas id="stage" aria-label="Fog over a kaleidoscope. Drag to wipe it clear."></canvas>
+  <canvas id="stage" aria-label="Fog over a kaleidoscope. Drag to wipe it clear. Hold the right button to build, let go to drop."></canvas>
 
   <header id="mast">
-    <span>DreDarkroom <i>//</i> Safelight <i>//</i> <b>SquidgySqueegee</b></span>
+    <span><b id="dre">DreDarkroom</b> <i>//</i> Safelight <i>//</i> <b>SquidgySqueegee</b></span>
     <small>DJ aliases</small>
   </header>
 
@@ -22,22 +22,37 @@
     <span class="cap">Turn on the safelight</span>
   </button>
 
-  <p id="hint">space&nbsp;expose · a–k&nbsp;keys · drag&nbsp;squeegee · 1 2 3&nbsp;light · enter&nbsp;play/stop · `&nbsp;hide · c&nbsp;clean · ?&nbsp;help</p>
+  <p id="hint">space&nbsp;build + drop · right-click&nbsp;build · z x v b&nbsp;mute · n&nbsp;clear · ; '&nbsp;style · ?&nbsp;help</p>
+  <p id="armed" hidden></p>
 
   <section id="help" hidden role="dialog" aria-label="How to play">
     <button id="helpclose" type="button" aria-label="Close help">×</button>
     <h2>How to play</h2>
     <dl>
       <dt>Play</dt>
-      <dd><b>a w s e d f t g y h u j k o l p</b> are a keyboard (a row of piano). Hold <b>space</b> to build tension, let go for the drop. <b>Drag on the picture</b> to squeegee the fog: it smears, squeaks and opens the filter. <b>1 2 3</b> change the light (and the mode).</dd>
+      <dd><b>a w s e d f t g y h u j k o l p</b> are a keyboard (a row of piano). <b>Drag on the picture</b> to squeegee the fog: it smears, squeaks and opens the filter. <b>1 2 3</b> change the light (and the mode).</dd>
+      <dt>Build and drop</dt>
+      <dd>Hold <b>space</b> (or the right mouse button, or the <b>build</b> button) and the music thins out and climbs. Let go and the drop lands on the next beat. <b>Shift + space</b> builds the other way: the mix sinks under water. <b>Quantise</b> decides when the drop lands (now, the next beat, the next bar). Build slowly and quietly: there is no rush.</dd>
       <dt>Shape a loop</dt>
-      <dd>Click the grid to write the bass line. Click dots on the rings to change the three drummers; <b>− +</b> change hits, <b>‹ ›</b> change loop length. <b>Drift</b> lets it wander around your loop: 0 keeps it exactly as written.</dd>
+      <dd>Click the grid to write the bass line; right-click a step to clear it. Click dots on the rings to change the three drummers; <b>− +</b> change hits, <b>‹ ›</b> change loop length. <b>n</b> clears the bass line, <b>Shift + n</b> the drums. <b>z x v b</b> mute kick, snare, hats and bass (right-click a ring to mute it). <b>Drift</b> lets it wander around your loop: 0 keeps it exactly as written.</dd>
+      <dt>Styles</dt>
+      <dd>The <b>style</b> menu (or <b>;</b> and <b>'</b>) swaps in a whole starting point: tempo, drum kit, patterns, sound and picture. Changes land on the next bar. Some are written in the spirit of artists that inspired this; none copy a track. <b>Slow Build</b> starts with just a kick and hats.</dd>
+      <dt>Tempo</dt>
+      <dd>The slider moves in tenths. <b>dnb</b> (or <b>\</b>) switches it to the drum and bass range up to 180. <b>[ ]</b> nudge by 1, <b>{ }</b> by 0.1.</dd>
+      <dt>Clips, loops and recordings</dt>
+      <dd><b>● drums</b> / <b>● bass</b> (or <b>r</b>) record 1 to 8 bars from the next bar and loop them. Drag a saved clip, a loop .json or a performance .sqz onto the page and it snaps in on the next bar (recordings take over the page until you press back to live).</dd>
+      <dt>Journey</dt>
+      <dd><b>journey</b> (or <b>i</b>) slowly raises the tempo while the picture changes and thickens, over as many bars as you choose.</dd>
       <dt>Keep a loop</dt>
-      <dd><b>save loop</b> stores it in this browser. <b>↺ saved loop</b> puts the bass line back to what you saved. <b>files</b> exports or imports loops as small .json files (whole, or just bass, drums or sound).</dd>
+      <dd><b>save loop</b> stores it in this browser. <b>↺ saved loop</b> puts the bass line back. <b>files</b> exports or imports loops as small .json files.</dd>
       <dt>Show</dt>
-      <dd><b>`</b> (backtick) hides the panel, keeping the title. <b>c</b> goes fullscreen with nothing but the picture. <b>q</b> changes picture quality. Add <b>?clean=1</b> to the address for OBS.</dd>
+      <dd><b>`</b> (backtick) hides the panel. <b>c</b> goes fullscreen with nothing but the picture. <b>q</b> changes picture quality. Right-clicks are yours: no browser menu gets in the way of a screen recording. Add <b>?clean=1</b> to the address for OBS.</dd>
       <dt>Record</dt>
-      <dd>Pick a format, press <b>● rec</b>. <b>WAV</b> is lossless, <b>MP3</b> is 320 kbps, <b>Performance</b> is a tiny file you can replay in the <a href="player.html">player</a>, <b>Video</b> keeps picture and sound. <b>snap</b> saves a still.</dd>
+      <dd>Pick a format, press <b>● rec</b>. <b>Lean WebM</b> is picture and sound in a small file. <b>Visuals only</b> has no sound. <b>Screen</b> records the whole page with its controls. <b>Video + performance</b> saves a video and a replay file together. <b>WAV</b> is lossless, <b>MP3</b> is 320 kbps, <b>Performance</b> is a tiny file that replays on the page. <b>snap</b> saves a still.</dd>
+      <dt>MIDI</dt>
+      <dd><b>midi</b> (or <b>m</b>) connects a controller: learn any button or knob, or run the quick map. Needs Chrome or Edge.</dd>
+      <dt>Hidden</dt>
+      <dd>Some things are not on any button. Try <b>0</b>.</dd>
     </dl>
     <p class="fine">
       <a href="player.html">Performance player</a>
@@ -47,9 +62,20 @@
     <p class="fine">Version <span id="ver"></span>. DreDarkroom, Safelight and SquidgySqueegee are DJ aliases. MP3 encoding by <a href="https://lame.sourceforge.net">LAME</a> (lamejs, LGPL).</p>
   </section>
 
+  <section id="midipanel" hidden role="dialog" aria-label="MIDI controller"></section>
+  <section id="journeypop" hidden role="dialog" aria-label="Journey"></section>
+
   <div id="notice" role="alert" hidden></div>
   <div id="toast" role="status" aria-live="polite"></div>
+  <div id="dropzone" hidden><p>Drop a recording, a loop or a clip</p></div>
   <pre id="debug" hidden></pre>
+
+  <div id="pbar" hidden>
+    <button id="pplay" type="button" aria-label="Play">▶</button>
+    <input id="pseek" type="range" min="0" max="100" step="0.1" value="0" aria-label="Position">
+    <span id="ptime">00:00 / 00:00</span>
+    <button id="pclose" type="button" title="Leave the recording and play live again">back to live</button>
+  </div>
 
   <main id="panel" aria-label="Instrument">
     <section id="drummers" aria-label="Three drummers"></section>
@@ -59,20 +85,46 @@
     </section>
     <section id="light" aria-label="Light and time">
       <div id="bulbs"></div>
+      <label class="knob" id="stylewrap"><span>Style<small>a whole starting point</small></span>
+        <select id="style" aria-label="Style"></select>
+      </label>
+      <div id="tempo"></div>
     </section>
 
     <div id="tools">
       <div class="group" aria-label="Loop">
         <button id="save" type="button" title="Save this loop in this browser. It comes back next time you open the page.">save loop</button>
         <button id="revert" type="button" title="Put the bass line back to the loop you saved (undoes Drift)">↺ saved loop</button>
+        <button id="clearbass" type="button" title="Empty the bass line (n)">clear bass</button>
+        <button id="cleardrums" type="button" title="Empty the three drummers (Shift + n)">clear drums</button>
         <span class="menuwrap">
           <button id="files" type="button" aria-haspopup="menu" aria-expanded="false" title="Export or import loops as files">files ▾</button>
           <div id="filesmenu" role="menu" hidden></div>
         </span>
-        <input id="pick" type="file" accept=".json,application/json" hidden>
+        <input id="pick" type="file" accept=".json,.sqz,application/json,application/octet-stream" hidden>
+      </div>
+      <div class="group" aria-label="Mute" id="mutes"></div>
+      <div class="group" aria-label="Clips">
+        <select id="clipbars" aria-label="Clip length in bars" title="How many bars a clip records">
+          <option value="1">1 bar</option><option value="2">2 bars</option><option value="4" selected>4 bars</option><option value="8">8 bars</option>
+        </select>
+        <button id="clipdrums" type="button" title="Record the drums for this many bars, from the next bar, then loop them">● drums</button>
+        <button id="clipbass" type="button" title="Record the bass for this many bars, from the next bar, then loop it">● bass</button>
+        <span id="clips"></span>
+      </div>
+      <div class="group" aria-label="Perform">
+        <button id="build" type="button" title="Hold to build, let go to drop (same as space). Right-hold builds the other way.">build ▸ drop</button>
+        <select id="quant" aria-label="Quantise" title="When the drop lands">
+          <option value="beat">on the beat</option><option value="bar">on the bar</option><option value="now">tight (16th)</option>
+        </select>
+        <button id="journey" type="button" aria-haspopup="dialog" title="Slowly raise the tempo and progress the picture (i)">journey</button>
+        <button id="midi" type="button" aria-haspopup="dialog" title="Connect a MIDI controller (m)">midi</button>
       </div>
       <div class="group" aria-label="Record">
         <select id="recfmt" aria-label="Recording format"></select>
+        <select id="recq" aria-label="Video size" title="How much detail a video keeps">
+          <option value="3000000">lean</option><option value="6000000">sharp</option><option value="12000000">full</option>
+        </select>
         <button id="rec" type="button" aria-pressed="false">● rec</button>
         <span id="recinfo" aria-live="off"></span>
         <button id="snap" type="button" title="Save a picture of what is on screen">snap</button>
@@ -84,14 +136,16 @@
     </div>
   </main>
 
-  <script src="js/config.js?v=2.0.2"></script>
-  <script src="js/wav.js?v=2.0.2"></script>
-  <script src="js/perfrec.js?v=2.0.2"></script>
-  <script src="js/audio.js?v=2.0.2"></script>
-  <script src="js/seq.js?v=2.0.2"></script>
-  <script src="js/visual.js?v=2.0.2"></script>
-  <script src="js/recorder.js?v=2.0.2"></script>
-  <script src="js/ui.js?v=2.0.2"></script>
-  <script src="js/main.js?v=2.0.2"></script>
+  <script src="js/config.js?v=3.0.0"></script>
+  <script src="js/wav.js?v=3.0.0"></script>
+  <script src="js/perfrec.js?v=3.0.0"></script>
+  <script src="js/audio.js?v=3.0.0"></script>
+  <script src="js/seq.js?v=3.0.0"></script>
+  <script src="js/visual.js?v=3.0.0"></script>
+  <script src="js/playback.js?v=3.0.0"></script>
+  <script src="js/midi.js?v=3.0.0"></script>
+  <script src="js/recorder.js?v=3.0.0"></script>
+  <script src="js/ui.js?v=3.0.0"></script>
+  <script src="js/main.js?v=3.0.0"></script>
 </body>
 </html>
