@@ -7,7 +7,7 @@ A living list. Ideas are welcome: use the *Suggest something* link in the how-to
 - Record the final output: **WAV** (24-bit lossless, streamed to disk), **MP3 320**, **video + audio**, PNG stills.
 - **Performance recordings** (`.sqz`): a few KB for a set, replayed in the standalone **player**, with pause and seeking.
 - More ways to export loops as JSON: everything, bass only, drums only, sound only, plus clipboard copy and paste.
-- Live-set robustness: a safety limiter, audio-paused notice and one-touch resume, screen kept awake, guard against closing the tab mid-set,
+- Live-set robustness: a limiter plus a soft-clip guard (the output never clips), audio-paused notice and one-touch resume, screen kept awake, guard against closing the tab mid-set,
   automatic picture-quality fallback (and cautious recovery), and a frame loop that survives a bad frame.
 - `H` is a note now; the backtick hides the panel; a `?` how-to card is on the page.
 - Clearer button names: **save loop** and **↺ saved loop**.

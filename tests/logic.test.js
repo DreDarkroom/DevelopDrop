@@ -247,3 +247,23 @@ test('out-of-range values are clamped, hostile drummer entries ignored', () => {
   assert.equal(S.light, light);
   assert.equal(JSON.stringify(S.drummers[1]), d1);
 });
+
+/* ============================== Output guard ============================== */
+test('the soft-clip guard is transparent below the knee and can never reach full scale', () => {
+  const { audio } = load('audio.js');
+  const c = audio.guardCurve(), n = c.length;
+  const inputAt = (i) => ((i / (n - 1)) * 2 - 1) * 2;            // the curve is indexed by x/2 (a 0.5 pre-gain sits in front of it)
+  let max = 0, prev = -Infinity;
+  for (let i = 0; i < n; i++) {
+    const x = inputAt(i), y = c[i];
+    if (Math.abs(x) <= 0.7) assert.ok(Math.abs(y - x) < 1e-6, `not transparent at ${x}: ${y}`);
+    assert.ok(y >= prev, 'monotonic');                            // louder in never means quieter out
+    prev = y;
+    max = Math.max(max, Math.abs(y));
+    assert.ok(Math.abs(c[i] + c[n - 1 - i]) < 1e-6, 'symmetric');
+  }
+  assert.ok(max <= 0.97 + 1e-6, `ceiling ${max}`);
+  assert.ok(max > 0.96, 'uses the headroom it promises');
+  // a signal 6 dB over full scale (x = 2) comes out below the ceiling too
+  assert.ok(c[n - 1] <= 0.97 + 1e-6);
+});

@@ -2,7 +2,7 @@
 (function (SS) {
   'use strict';
   SS.config = {
-    version: '2.0.1',
+    version: '2.0.2',
     // Where the "suggest" link sends messages. Leave empty and the link simply isn't shown.
     // Use a dedicated alias, never a personal address.
     suggestEmail: '',

@@ -14,11 +14,11 @@
   const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
   const cutHz = (x) => 50 * Math.pow(2, clamp(x, 0, 1) * 7.6); // 0..1 -> 50Hz..~9.7kHz
 
-  let ctx, dry, fxIn, comp, limiter, analyser, bins, noiseBuf, voice, echo, squeak, rise, mediaDest;
+  let ctx, dry, fxIn, comp, limiter, guard, analyser, bins, noiseBuf, voice, echo, squeak, rise, mediaDest;
 
   A.now = () => (ctx ? ctx.currentTime : 0);
   A.ctx = () => ctx;
-  A.tapSource = () => limiter;                 // final, limited output: what recordings capture
+  A.tapSource = () => guard;                   // the final output (limited and soft-clipped): what recordings capture
   A.resume = () => (ctx ? ctx.resume() : Promise.resolve());
   A.onState = null;                            // set by the UI: called with 'running' | 'suspended' | 'interrupted' | 'closed'
   A.hook = null;                               // set by the performance recorder: (audioTime, code, ...args)
@@ -30,7 +30,7 @@
     if (!ctx) return null;
     if (!mediaDest) {
       mediaDest = ctx.createMediaStreamDestination();
-      limiter.connect(mediaDest);
+      guard.connect(mediaDest);
     }
     return mediaDest.stream;
   };
@@ -55,20 +55,29 @@
     comp.release.value = 0.22;
     const master = ctx.createGain();
     master.gain.value = 0.85;
-    // A last line of defence for a loud PA and for recordings: a fast, hard compressor that catches peaks.
+    // Two lines of defence for a loud PA and for recordings. 1) a fast compressor catches most peaks. It is not a true
+    // brick-wall (a live test still hit full scale under extreme settings), so 2) a soft-clip guard follows it: untouched
+    // below about -3 dBFS, then a smooth curve that can never exceed 0.97, so nothing reaches the speakers or a file clipped.
     limiter = ctx.createDynamicsCompressor();
-    limiter.threshold.value = -1.5;
+    limiter.threshold.value = -3;
     limiter.knee.value = 0;
     limiter.ratio.value = 20;
     limiter.attack.value = 0.002;
     limiter.release.value = 0.1;
+    const guardIn = ctx.createGain();
+    guardIn.gain.value = 0.5;                     // the shaper only sees -1..1, so halve the signal to give it 6 dB of overs to catch
+    guard = ctx.createWaveShaper();
+    guard.curve = guardCurve();
+    guard.oversample = '4x';
+    limiter.connect(guardIn);
+    guardIn.connect(guard);
     analyser = ctx.createAnalyser();
     analyser.fftSize = 1024;
     analyser.smoothingTimeConstant = 0.7;
     bins = new Uint8Array(analyser.frequencyBinCount);
     comp.connect(master);
     master.connect(limiter);
-    limiter.connect(analyser);
+    guard.connect(analyser);
     analyser.connect(ctx.destination);
 
     dry = ctx.createGain();
@@ -84,6 +93,19 @@
     A.ready = true;
     return ctx.resume();
   };
+
+  /** Soft clip: identity up to 0.7, then a tanh knee that approaches (but never reaches) 0.97. Input is x/2 (see guardIn). */
+  function guardCurve() {
+    const n = 8193, c = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = ((i / (n - 1)) * 2 - 1) * 2;      // undo the 0.5 pre-gain
+      const a = Math.abs(x);
+      c[i] = Math.sign(x) * (a <= 0.7 ? a : 0.7 + 0.27 * Math.tanh((a - 0.7) / 0.27));
+    }
+    return c;
+  }
+
+  A.guardCurve = guardCurve;                   // exposed so it can be unit-tested
 
   /* ---- the tray: dotted-eighth echo that darkens every pass, plus a noise-tail room ---- */
   function buildTray() {

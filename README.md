@@ -31,7 +31,7 @@ The drummers loop at different lengths (16, 12, 14), so the groove only repeats 
 *files ▾* exports and imports loops as small readable `.json` files: everything, or just the bass line, the drums or the sound settings;
 you can also copy a loop to the clipboard and paste it elsewhere. Clearing your browser's site data erases saved loops, so export the ones you love.
 
-**Recording.** Pick a format and press *● rec*. It records the final output, after a safety limiter.
+**Recording.** Pick a format and press *● rec*. It records the final output, after a limiter and a soft-clip guard, so a recording (and your speakers) never see the signal clip.
 
 | Format | What you get |
 |---|---|
