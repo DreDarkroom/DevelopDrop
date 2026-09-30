@@ -5,7 +5,7 @@ made of light: a kaleidoscope you wipe clear with a squeegee. No installs, no ac
 
 DreDarkroom, Safelight and SquidgySqueegee are DJ aliases.
 
-**Play it:** open `index.html`, or visit the hosted page (see the repository description). Press the bulb. Press **?** for a short how-to.
+**Play it:** https://dredarkroom.github.io/squidgysqueegee/ (or open `index.html` from this folder). Press the bulb. Press **?** for a short how-to.
 
 ## Playing
 

@@ -2,11 +2,11 @@
 (function (SS) {
   'use strict';
   SS.config = {
-    version: '2.0.0',
+    version: '2.0.1',
     // Where the "suggest" link sends messages. Leave empty and the link simply isn't shown.
     // Use a dedicated alias, never a personal address.
     suggestEmail: '',
     // Where the roadmap lives (shown in the help card). Filled in when the site is published.
-    repoUrl: '',
+    repoUrl: 'https://github.com/DreDarkroom/squidgysqueegee',
   };
 })((window.SS = window.SS || { events: [] }));
