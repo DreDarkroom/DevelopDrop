@@ -8,7 +8,18 @@
   const P = (A.params = {
     cutoff: 0.42, reso: 0.4, decay: 0.38, drive: 0.22, glide: 0.18, space: 0.3,
     tempo: 119, mod: 0.5, lift: 0, breath: 0, root: 45, level: 0.75, duck: 0.5,
+    kickDb: 0, snareDb: 0, hatDb: 0, bassDb: 0,      // fine balance of each part, in decibels (mouse wheel over a part)
   });
+  A.PART_DB = ['kickDb', 'snareDb', 'hatDb', 'bassDb'];
+  A.DB_RANGE = [-24, 12];
+
+  /* How hard the engine works. 'mobile' asks the phone for a big, safe buffer (a small one is what makes phones crackle), looks further
+     ahead, and uses cheaper processing. `eco` (the battery saver) goes further still. The UI sets the profile before audio starts. */
+  A.profile = 'desktop';
+  A.lookahead = 0.18;                  // seconds the scheduler runs ahead of the audio clock
+  A.eco = false;
+  const dbToGain = (d) => Math.pow(10, d / 20);
+  const trim = { kick: 1, snare: 1, hat: 1 };      // linear gains from the dB settings, applied as each hit is scheduled
 
   const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
   const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
@@ -17,7 +28,7 @@
   let ctx, dry, fxIn, comp, master, mhp, mlp, gapGain, limiter, guard, analyser, bins, noiseBuf, voice, echo, squeak, rise, mediaDest;
   // measured in a browser: the bass alone was about 1.5x the level of everything else together, so it sits ~3.4 dB lower
   const BASS_TRIM = 0.68;
-  let bassDuck, riser = null, openHat = null;
+  let bassDuck, bassLevel, room, riser = null, openHat = null;
   const mstate = { hp: 20, lp: 20000 };          // where the master filters are heading (for chaining sweeps)
 
   A.now = () => (ctx ? ctx.currentTime : 0);
@@ -69,13 +80,16 @@
   A.init = async function () {
     if (ctx) return ctx.resume();
     const AC = window.AudioContext || window.webkitAudioContext;
-    ctx = new AC({ latencyHint: 'interactive' });
+    const mobile = A.profile === 'mobile';
+    const hint = mobile ? 'playback' : 'interactive';   // 'playback' = a bigger buffer: far fewer dropouts and less battery used
+    ctx = new AC({ latencyHint: hint });
     // MP3 encoders only speak 32 / 44.1 / 48 kHz; if the device runs at something else (e.g. 96 kHz), ask for 48 kHz.
     if (![32000, 44100, 48000].includes(ctx.sampleRate)) {
       await ctx.close();
-      ctx = new AC({ latencyHint: 'interactive', sampleRate: 48000 });
+      ctx = new AC({ latencyHint: hint, sampleRate: 48000 });
     }
     ctx.onstatechange = () => { if (A.onState) A.onState(ctx.state); };
+    A.lookahead = mobile ? 0.32 : 0.18;
 
     comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -16;
@@ -105,7 +119,7 @@
     guardIn.gain.value = 0.5;                     // the shaper only sees -1..1, so halve the signal to give it 6 dB of overs to catch
     guard = ctx.createWaveShaper();
     guard.curve = guardCurve();
-    guard.oversample = '4x';
+    guard.oversample = mobile || A.eco ? '2x' : '4x';
     analyser = ctx.createAnalyser();
     analyser.fftSize = 1024;
     analyser.smoothingTimeConstant = 0.7;
@@ -163,14 +177,27 @@
     fb.connect(echo);
     tone.connect(comp);
 
-    const room = ctx.createConvolver();
-    room.buffer = impulse(2.8, 2.6);
+    room = ctx.createConvolver();
+    room.buffer = impulse(A.profile === 'mobile' ? 1.4 : 2.8, 2.6);
     const roomOut = ctx.createGain();
     roomOut.gain.value = 0.5;
-    fxIn.connect(room);
+    if (!A.eco) fxIn.connect(room);
     room.connect(roomOut);
     roomOut.connect(comp);
   }
+
+  /** The battery saver: no convolution room (the most expensive part of the mix), a cheaper output stage, simpler hats. */
+  A.setEco = function (on) {
+    on = !!on;
+    if (on === A.eco) return;
+    A.eco = on;
+    if (!ctx) return;
+    try { if (on) fxIn.disconnect(room); else fxIn.connect(room); } catch (err) { /* already in that state */ }
+    guard.oversample = on || A.profile === 'mobile' ? '2x' : '4x';
+  };
+
+  /** How long after a sound is scheduled it is actually heard (a phone's buffer is big): the picture waits this long to stay in time. */
+  A.lag = () => (ctx ? Math.min(0.4, Math.max(0, ctx.outputLatency || ctx.baseLatency || 0)) : 0);
 
   function impulse(sec, curve) {
     const len = Math.floor(ctx.sampleRate * sec);
@@ -209,7 +236,7 @@
     }
 
     const shaper = ctx.createWaveShaper();
-    shaper.oversample = '2x';
+    shaper.oversample = A.profile === 'mobile' ? 'none' : '2x';
     const f1 = ctx.createBiquadFilter();
     const f2 = ctx.createBiquadFilter();
     f1.type = f2.type = 'lowpass';
@@ -230,7 +257,10 @@
     f1.connect(f2);
     f2.connect(vca);
     vca.connect(bassDuck);
-    bassDuck.connect(rumble);
+    bassLevel = ctx.createGain();
+    bassLevel.gain.value = dbToGain(P.bassDb);
+    bassDuck.connect(bassLevel);
+    bassLevel.connect(rumble);
     rumble.connect(dry);
     rumble.connect(send);
     send.connect(fxIn);
@@ -240,6 +270,10 @@
   }
 
   A.setParam = function (k, val) {
+    if (A.PART_DB.includes(k)) {
+      val = clamp(val, A.DB_RANGE[0], A.DB_RANGE[1]);
+      if (k !== 'bassDb') trim[k.slice(0, -2)] = dbToGain(val);
+    }
     P[k] = val;
     if (!ctx) return;
     const t = ctx.currentTime;
@@ -249,6 +283,7 @@
     else if (k === 'space') voice.send.gain.setTargetAtTime(val * 0.9, t, 0.02);
     else if (k === 'tempo') echo.delayTime.setTargetAtTime((0.75 * 60) / val, t, 0.05);
     else if (k === 'level') master.gain.setTargetAtTime(val * 0.9, t, 0.02);
+    else if (k === 'bassDb') bassLevel.gain.setTargetAtTime(dbToGain(val), t, 0.03);
   };
 
   A.noteOn = function (t, midi, vel, accent, baseOverride) {
@@ -339,7 +374,7 @@
   A.kick = function (t, vel = 1) {
     if (!ctx) return;
     hook(t, 2, r2(vel));
-    kickImpl(t, vel);
+    kickImpl(t, vel * trim.kick);
     duckAt(t);
   };
 
@@ -353,6 +388,7 @@
   A.snare = function (t, vel = 1) {
     if (!ctx) return;
     hook(t, 3, r2(vel));
+    vel *= trim.snare;
     const s = kit.snare;
     burst(t, { type: 'bandpass', freq: s.nf, q: s.nq, dur: s.nd, gain: s.ng * vel, send: s.send * P.space });
     tone(t, 'triangle', s.tf0, s.tf1, 0.08, s.td, s.tg * vel, 0);
@@ -366,6 +402,7 @@
   A.hat = function (t, vel = 1, open) {
     if (!ctx) return;
     hook(t, 4, r2(vel), open ? 1 : 0);
+    vel *= trim.hat;
     const h = kit.hat, dur = open ? h.od : h.cd;
     if (openHat) {                                    // any new hat chokes an open one, as on a real hi-hat
       openHat.gain.cancelScheduledValues(t);
@@ -373,7 +410,7 @@
       openHat = null;
     }
     let g;
-    if (h.metal) {
+    if (h.metal && !A.eco) {                          // eco swaps the six-oscillator metal hat for plain filtered noise
       const mix = ctx.createGain();
       const hp = ctx.createBiquadFilter();
       hp.type = 'highpass';

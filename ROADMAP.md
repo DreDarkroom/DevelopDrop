@@ -2,6 +2,14 @@
 
 A living list. Ideas are welcome: use the *Suggest something* link in the how-to card (press `?`) when it is there.
 
+## Shipped in 3.2
+
+- **Right-click menus** on the bass grid and the drummers: mute, solo, clear a step or all, fill with a new line, shift or turn a pattern, key up and down, record a clip, reset level.
+- **A fine mouse wheel for levels:** each part (kick, snare, hats, bass) has its own level in decibels, 0.25 dB a notch (Shift 1 dB, Alt 0.05 dB), kept in loops and recordings. The wheel over any slider nudges it finely too.
+- **Phone sound and heat:** a larger audio buffer, more look-ahead, cheaper processing and a shorter room on phones; the picture waits out the audio delay; an **eco** battery saver (30 frames a second, a fifth of the pixels, no reverb room, plainer hats).
+- **A battery indicator** that blinks on the beat when low and on every eighth when very low, and turns eco on by itself.
+- **Fullscreen on desktop** and a quiet clock of the time since the music started.
+
 ## Shipped in 3.1
 
 - **Stylus support:** pressure sets the squeegee blade for fine, precise strokes; the barrel button builds; the eraser end and a resting palm are ignored; high-rate pen points are all used.
@@ -37,6 +45,9 @@ The phone needs a way to talk to the page on the computer, which is the part tha
 ### Installable: PWA, then an Android app
 - **PWA:** install it from the browser, work offline, and get a touch layout that suits a phone or tablet.
 - **Android app:** a packaged version of the same page (with native MIDI and lower audio latency), for people who want it on a phone or tablet stage.
+
+### Sound on phones, still to measure
+The phone settings are chosen from what is known to cause crackle and heat (small buffers, convolution reverb, picture load), and measured here only on a computer. Next: measure on real phones and tune, and move the heavy parts of the mix off the main thread.
 
 ### MIDI, further
 - Hardware checks on real controllers (Native Instruments Kontrol X1 MK2 first), then ready-made starting maps for the ones that work well.

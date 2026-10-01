@@ -83,7 +83,7 @@
   function tick() {
     if (!PB.playing || !PB.perf) return;
     const now = A.now();
-    idx = P.pump(PB.perf.events, idx, now, T0, handlers);
+    idx = P.pump(PB.perf.events, idx, now, T0, handlers, A.lookahead);
     if (now - T0 >= PB.perf.duration + 1.5) finish();
     changed();
   }

@@ -21,7 +21,7 @@
   const UNIT = 10000;                                                        // ticks per second (0.1 ms)
   const MAX_EVENTS = 3000000;
   // A Map, not a plain object: a hostile file naming a parameter "__proto__" or "constructor" must not match anything.
-  const PARAM_RANGE = new Map(Object.entries({ cutoff: [0, 1], reso: [0, 1], decay: [0, 1], drive: [0, 1], glide: [0, 1], space: [0, 1], tempo: [60, 200], mod: [0, 1], level: [0, 1], duck: [0, 1] }));
+  const PARAM_RANGE = new Map(Object.entries({ cutoff: [0, 1], reso: [0, 1], decay: [0, 1], drive: [0, 1], glide: [0, 1], space: [0, 1], tempo: [60, 200], mod: [0, 1], level: [0, 1], duck: [0, 1], root: [24, 72], kickDb: [-24, 12], snareDb: [-24, 12], hatDb: [-24, 12], bassDb: [-24, 12] }));
   const r = (v, d) => { const k = Math.pow(10, d); return Math.round(v * k) / k; };
 
   /* ---------------- recording ---------------- */

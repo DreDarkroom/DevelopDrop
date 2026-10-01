@@ -350,3 +350,35 @@ test('performance files: a stylus stroke keeps its blade size, and non-numeric j
   assert.deepEqual(out.events[0].a, [0.5, 0.5, 0.4, 0.4, 0.3]);
   assert.equal(out.events[1].a.length, 4);
 });
+
+test('part levels (dB): clamped, saved with a loop, validated in loops and recordings', () => {
+  const { A, S } = (() => { const w = world(); return { A: w.SS.audio, S: w.SS.seq }; })();
+  A.setParam('hatDb', 99); assert.equal(A.params.hatDb, 12);
+  A.setParam('bassDb', -99); assert.equal(A.params.bassDb, -24);
+  A.setParam('kickDb', -1.25); assert.equal(A.params.kickDb, -1.25);
+  const snap = S.snapshot('loop');
+  assert.equal(snap.params.hatDb, 12);
+  assert.equal(snap.params.kickDb, -1.25);
+  // a hostile loop file cannot push a level outside its range (or smuggle a string in)
+  const bad = JSON.parse(JSON.stringify(snap));
+  bad.params.hatDb = 500; bad.params.snareDb = 'loud';
+  S.apply(bad);
+  assert.ok(A.params.hatDb <= 12);
+  assert.ok(typeof A.params.snareDb === 'number');
+  // recordings: level changes replay, and out-of-range ones are clamped
+  const P = load('perfrec.js').perf;
+  const out = P.validate({ app: 'SquidgySqueegee', kind: 'performance', version: 1, duration: 1, snapshot: {}, events: [[0, 5, 'hatDb', -300], [10, 5, 'root', 45], [10, 5, 'nope', 1]] });
+  assert.equal(out.events.length, 2);
+  assert.equal(out.events[0].a[1], -24);
+});
+
+test('the scheduler looks ahead by A.lookahead (longer on phones)', () => {
+  const { A, S, calls } = (() => { const w = world(); return { A: w.SS.audio, S: w.SS.seq, calls: w.calls }; })();
+  assert.equal(A.lookahead, 0.18);
+  assert.equal(A.profile, 'desktop');
+  assert.equal(typeof A.setEco, 'function');
+  A.setEco(true);                                  // no audio context yet: it only records the choice
+  assert.equal(A.eco, true);
+  A.setEco(false);
+  assert.equal(A.eco, false);
+});

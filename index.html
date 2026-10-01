@@ -7,7 +7,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <title>DevelopDrop</title>
   <meta name="description" content="DevelopDrop: a small instrument for SafeLight. DreDarkroom, SafeLight and SquidgySqueegee are DJ aliases.">
-  <link rel="stylesheet" href="css/style.css?v=3.1.1">
+  <link rel="stylesheet" href="css/style.css?v=3.2.0">
 </head>
 <body>
   <canvas id="stage" aria-label="Fog over a kaleidoscope. Drag to wipe it clear. Hold the right button to build, let go to drop."></canvas>
@@ -24,7 +24,9 @@
     <span class="cap">Turn on the safelight</span>
   </button>
 
-  <p id="hint">space&nbsp;build + drop · right-click&nbsp;build · z x v b&nbsp;mute · n&nbsp;clear · ; '&nbsp;style · ?&nbsp;help</p>
+  <p id="hint">space&nbsp;build + drop · right-click&nbsp;menu · wheel&nbsp;level · z x v b&nbsp;mute · n&nbsp;clear · ; '&nbsp;style · ?&nbsp;help</p>
+  <div id="battery" hidden role="img" aria-label="Battery"></div>
+  <div id="clock" aria-live="off" title="Time since the music started"></div>
   <p id="armed" hidden></p>
 
   <section id="help" hidden role="dialog" aria-label="How to play">
@@ -35,10 +37,14 @@
       <dd><b>a w s e d f t g y h u j k o l p</b> are a keyboard (a row of piano). <b>Drag on the picture</b> to squeegee the fog: it smears, squeaks and opens the filter. <b>1 2 3</b> change the light (and the mode).</dd>
       <dt>Build and drop</dt>
       <dd>Hold <b>space</b> (or the right mouse button, or the <b>build</b> button) and the music thins out and climbs. Let go and the drop lands on the next beat. <b>Shift + space</b> builds the other way: the mix sinks under water. <b>Quantise</b> decides when the drop lands (now, the next beat, the next bar). Build slowly and quietly: there is no rush.</dd>
+      <dt>Balance and menus</dt>
+      <dd>Put the mouse over the bass grid or a drummer and use the <b>wheel</b> to trim its level in quarter-decibel steps (hold <b>Shift</b> for 1 dB, <b>Alt</b> for 0.05 dB): wheel down takes the edge off the bass, wheel up over the hats brings them forward. The wheel over any slider nudges it just as finely. <b>Right-click</b> the bass grid or a drummer for a menu: mute, solo, clear, a new pattern, shift or turn it, key up and down, a clip, reset level.</dd>
+      <dt>Phones, battery and fullscreen</dt>
+      <dd><b>eco</b> is a battery saver: a smaller picture at 30 frames a second, no reverb room and simpler hats, so a phone stays cooler. It starts on for phones, and turns on by itself when the battery is low. The battery indicator beside the <b>?</b> blinks on the beat when low, and twice as fast when very low. <b>full</b> (or <b>Shift + F</b>) goes fullscreen on any device and shows a quiet clock of the time since the music started; click it to see the time of day instead.</dd>
       <dt>Touch and pen</dt>
       <dd>The same gestures work on a phone, tablet or with a stylus. <b>One finger</b> squeegees; <b>two fingers held</b> build and letting go drops; <b>three</b> build the other way; <b>double-tap</b> the picture to hide or show the panel. A pen's pressure sets the blade, so a light touch is fine and precise; its barrel button builds. Resting your palm while using a pen is ignored. On a phone the first tap also goes fullscreen, and <b>more ▴</b> opens the rest of the controls.</dd>
       <dt>Shape a loop</dt>
-      <dd>Click the grid to write the bass line; right-click a step to clear it. Click dots on the rings to change the three drummers; <b>− +</b> change hits, <b>‹ ›</b> change loop length. <b>n</b> clears the bass line, <b>Shift + n</b> the drums. <b>z x v b</b> mute kick, snare, hats and bass (right-click a ring to mute it). <b>Drift</b> lets it wander around your loop: 0 keeps it exactly as written.</dd>
+      <dd>Click the grid to write the bass line. Click dots on the rings to change the three drummers; <b>− +</b> change hits, <b>‹ ›</b> change loop length. <b>n</b> clears the bass line, <b>Shift + n</b> the drums. <b>z x v b</b> mute kick, snare, hats and bass. <b>Drift</b> lets it wander around your loop: 0 keeps it exactly as written.</dd>
       <dt>Styles</dt>
       <dd>The <b>style</b> menu (or <b>;</b> and <b>'</b>) swaps in a whole starting point: tempo, drum kit, patterns, sound and picture. Changes land on the next bar. Some are written in the spirit of artists that inspired this; none copy a track. <b>Slow Build</b> starts with just a kick and hats.</dd>
       <dt>Tempo</dt>
@@ -135,23 +141,24 @@
         <button id="snap" type="button" title="Save a picture of what is on screen">snap</button>
       </div>
       <div class="group quick" aria-label="View">
-        <button id="full" type="button" title="Fullscreen (the first tap on a phone does this for you)">full</button>
+        <button id="full" type="button" aria-pressed="false" title="Fullscreen, with a small clock of the time since the music started (Shift + F). The first tap on a phone does this for you.">full</button>
+        <button id="eco" type="button" aria-pressed="false" title="Battery saver: a smaller picture at 30 frames a second, no reverb room, simpler hats. Cooler and kinder to a phone.">eco</button>
         <button id="clean" type="button" aria-pressed="false" title="Fullscreen, nothing but the picture (c)">clean</button>
         <button id="play" type="button">stop</button>
       </div>
     </div>
   </main>
 
-  <script src="js/config.js?v=3.1.1"></script>
-  <script src="js/wav.js?v=3.1.1"></script>
-  <script src="js/perfrec.js?v=3.1.1"></script>
-  <script src="js/audio.js?v=3.1.1"></script>
-  <script src="js/seq.js?v=3.1.1"></script>
-  <script src="js/visual.js?v=3.1.1"></script>
-  <script src="js/playback.js?v=3.1.1"></script>
-  <script src="js/midi.js?v=3.1.1"></script>
-  <script src="js/recorder.js?v=3.1.1"></script>
-  <script src="js/ui.js?v=3.1.1"></script>
-  <script src="js/main.js?v=3.1.1"></script>
+  <script src="js/config.js?v=3.2.0"></script>
+  <script src="js/wav.js?v=3.2.0"></script>
+  <script src="js/perfrec.js?v=3.2.0"></script>
+  <script src="js/audio.js?v=3.2.0"></script>
+  <script src="js/seq.js?v=3.2.0"></script>
+  <script src="js/visual.js?v=3.2.0"></script>
+  <script src="js/playback.js?v=3.2.0"></script>
+  <script src="js/midi.js?v=3.2.0"></script>
+  <script src="js/recorder.js?v=3.2.0"></script>
+  <script src="js/ui.js?v=3.2.0"></script>
+  <script src="js/main.js?v=3.2.0"></script>
 </body>
 </html>

@@ -17,8 +17,11 @@ DreDarkroom, SafeLight and SquidgySqueegee are DJ aliases.
 | drag on the picture | squeegee the fog: it smears, squeaks and opens the filter. A **stylus**'s pressure sets the blade: light is fine and precise, hard is broad |
 | `1` `2` `3` | change the light, which also changes the mode (Aeolian, Dorian, Lydian) |
 | `enter` | play / stop |
-| `z` `x` `v` `b` | mute or bring back kick, snare, hats, bass (right-click a ring too) |
-| `n` / `Shift` + `n` | clear the bass line / the drums (right-click a grid step clears just that step) |
+| `z` `x` `v` `b` | mute or bring back kick, snare, hats, bass |
+| `n` / `Shift` + `n` | clear the bass line / the drums |
+| right-click the bass grid or a drummer | a menu: mute, solo, clear a step or all, a new pattern, shift or turn it, key up and down, record a clip, reset level |
+| mouse wheel over the bass grid or a drummer | trim its level very finely: 0.25 dB a notch (`Shift` 1 dB, `Alt` 0.05 dB). Wheel down is quieter. The wheel over any slider nudges it finely too |
+| `Shift` + `f` | fullscreen on any device, with a quiet clock |
 | `;` `'` | previous / next **style** |
 | `[` `]` / `{` `}` | tempo down / up by 1 / by 0.1. `\` switches the drum and bass range (to 180) |
 | `r` / `Shift` + `r` | record a clip of drums and bass (length set beside the button) / clear clips |
@@ -35,6 +38,16 @@ The drummers loop at different lengths, so the groove takes a long time to repea
 **Level** is the overall volume and **Duck** is how far the bass dips under each kick.
 
 **Touch and pen.** One set of gestures for mouse, finger and stylus. One finger squeegees; **two fingers held** build and letting go drops; **three** build the other way; **double-tap** the picture hides or shows the panel. A pen's barrel button builds like the right mouse button, its eraser end is ignored, and a resting palm is ignored while a pen is in use. On a phone or tablet the first tap (the safelight switch) also goes fullscreen (add `?fullscreen=0` to the address to stop that; iPhones do not allow page fullscreen), the controls are a sheet at the bottom (a column on the right when the phone is on its side), and **more ▴** opens the rest.
+
+**Balance.** Each part has its own level in decibels, shown beside it while you change it and kept in saved loops and recordings (a style leaves your balance alone; *reset level* is in each right-click menu).
+The safety compressor sits after everything, so a very loud kick has little headroom left: pull the others down rather than pushing the kick up.
+
+**Phones and battery.** On a phone the page asks for a larger audio buffer (small ones are what make phones crackle), looks further ahead, uses cheaper processing and a shorter reverb room, and keeps the picture in step with the longer delay.
+**eco** goes further: a picture at about a fifth of the pixels and 30 frames a second, no reverb room, plainer hats. It starts on for phones and turns on by itself at 20% battery (not charging); the button turns it off.
+The **battery indicator** (where the browser offers one: Chrome and Edge, including Android; Safari and Firefox do not) is ten small cells beside the help button. At 15% and below, unplugged, it blinks on every beat; at 7% and below, on every eighth note. In clean mode it only appears when it is that low.
+`?battery=0.12` (or `0.5c` for charging) shows the indicator at a pretend level, and `?eco=1`, `?profile=mobile` try the phone settings on a computer.
+
+**Fullscreen and the clock.** *full* (or `Shift` + `f`) goes fullscreen on any device. In fullscreen and clean mode a quiet clock at the top shows the time since the music started; click it to see the time of day.
 
 **Styles.** The style menu swaps in a whole starting point at the next bar: tempo, drum kit, bass, rings, sound, light and picture.
 There is a slow rolling one, a polyrhythmic minimal one, four-on-the-floor electro, a rave one, drum and bass at 174, *Slow Build* (only kick and hats, bring the rest in yourself) and a blank page.

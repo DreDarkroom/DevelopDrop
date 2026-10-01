@@ -2,7 +2,7 @@
 (function (SS) {
   'use strict';
   SS.config = {
-    version: '3.1.1',
+    version: '3.2.0',
     // The project's name and the prefix for saved files. One place, so a rename is one edit.
     name: 'DevelopDrop',
     slug: 'developdrop',

@@ -381,6 +381,72 @@ body.touch #hint { display: none; }
   #tools button, #tools select { padding: 0 9px; }
 }
 
+
+/* ---- v3.2: levels, context menu, battery, clock ---- */
+#synth { position: relative; }
+.lvl { font-size: 9px; color: var(--dim); min-height: 11px; opacity: 0; transition: opacity 0.4s; font-variant-numeric: tabular-nums; letter-spacing: 0.08em; text-align: center; }
+.lvl.has { opacity: 0.7; }
+.lvl.show { opacity: 1; color: #fff; }
+#basslvl { position: absolute; top: -13px; right: 0; text-align: right; }
+
+#ctx {
+  position: fixed; z-index: 20; min-width: 210px; padding: 5px; display: flex; flex-direction: column; gap: 2px;
+  background: rgba(8, 0, 0, 0.97); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 34px rgba(0, 0, 0, 0.65);
+  text-transform: none; letter-spacing: 0.03em; font-size: 12px;
+}
+#ctx .ctxh { padding: 4px 9px 5px; color: var(--dim); font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; }
+#ctx button {
+  text-align: left; background: none; border: 0; border-radius: 6px; padding: 7px 9px; font: inherit; letter-spacing: inherit; text-transform: none; color: inherit; cursor: pointer;
+}
+#ctx button:hover, #ctx button:focus-visible { background: rgba(var(--tint-rgb), 0.18); outline: none; }
+#ctx button.dim { color: var(--dim); }
+#ctx hr { border: 0; border-top: 1px solid var(--line); margin: 3px 4px; width: auto; }
+
+/* the battery: ten cells, quiet until it matters */
+#battery {
+  position: fixed; top: 15px; right: 56px; z-index: 5; display: flex; align-items: center; gap: 6px; height: 18px; pointer-events: auto; cursor: default;
+  color: var(--dim); font-size: 9px; letter-spacing: 0.1em; font-variant-numeric: tabular-nums; transition: opacity 0.6s, color 0.4s;
+}
+#battery[hidden] { display: none; }
+#battery svg { width: 34px; height: 14px; overflow: visible; }
+#battery .bshell { fill: none; stroke: var(--dim); stroke-width: 1; }
+#battery .bshell.fill { fill: var(--dim); stroke: none; }
+#battery .bcell { fill: var(--tint); opacity: 0.1; transition: opacity 0.4s; }
+#battery .bcell.on { opacity: 0.85; filter: drop-shadow(0 0 2px rgba(var(--tint-rgb), 0.7)); }
+#battery .bbolt { fill: #fff; opacity: 0; transition: opacity 0.3s; }
+#battery.chg .bbolt { opacity: 0.95; }
+#battery.chg .bcell.on { opacity: 1; fill: #fff; }
+#battery.low { color: var(--ink); }
+#battery.crit { color: #fff; }
+#battery.crit .bshell { stroke: #fff; }
+#battery.crit .bcell.on { fill: #ff4d3a; opacity: 1; filter: drop-shadow(0 0 4px #ff2a14); }
+#battery.crit.still { animation: bpulse 1.6s ease-in-out infinite; }
+#battery.crit.urgent.still { animation-duration: 0.8s; }
+@keyframes bpulse { 50% { opacity: 0.35; } }
+body:not(.lit) #battery, body.bare #battery { opacity: 0; }
+body.clean #battery:not(.crit) { opacity: 0; pointer-events: none; }
+#hint { top: 40px; }
+#armed { top: 62px; }
+
+/* the set clock: only in fullscreen and clean mode, large enough to read from across a room, quiet enough to ignore */
+#clock {
+  position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 5; display: none; cursor: pointer;
+  font: 300 26px/1 var(--mono); letter-spacing: 0.16em; font-variant-numeric: tabular-nums; color: rgba(var(--tint-rgb), 0.5);
+  text-shadow: 0 0 14px rgba(var(--tint-rgb), 0.25); -webkit-user-select: none; user-select: none;
+}
+body.fs #clock, body.clean #clock { display: block; }
+body:not(.lit) #clock { display: none; }
+#clock:hover { color: rgba(var(--tint-rgb), 0.85); }
+body.darkroom #clock { color: rgba(255, 90, 60, 0.6); }
+
+@media (max-width: 960px), (hover: none) and (pointer: coarse) {
+  #battery { top: calc(18px + env(safe-area-inset-top)); right: calc(58px + env(safe-area-inset-right)); }
+  #mast { max-width: calc(100vw - 180px); }
+  #clock { top: calc(58px + env(safe-area-inset-top)); font-size: 22px; }
+  #ctx { min-width: 220px; }
+  #ctx button { padding: 11px 10px; font-size: 14px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * { transition-duration: 0.01s !important; }
 }

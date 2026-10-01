@@ -194,7 +194,7 @@
 
   /* ---- a loop is a small JSON snapshot: kept in the browser, or exported / imported as a file ---- */
   const KEY = 'squidgysqueegee.loop.v1';
-  const PARAMS = { cutoff: [0, 1], reso: [0, 1], decay: [0, 1], drive: [0, 1], glide: [0, 1], space: [0, 1], tempo: [60, 200], level: [0, 1], duck: [0, 1] };
+  const PARAMS = { cutoff: [0, 1], reso: [0, 1], decay: [0, 1], drive: [0, 1], glide: [0, 1], space: [0, 1], tempo: [60, 200], level: [0, 1], duck: [0, 1], root: [24, 72], kickDb: [-24, 12], snareDb: [-24, 12], hatDb: [-24, 12], bassDb: [-24, 12] };
   const num = (v, lo, hi) => (typeof v === 'number' && isFinite(v) ? Math.min(hi, Math.max(lo, v)) : null);
 
   /* kind: 'loop' (everything), 'pattern' (bass line), 'drums' (the three rings), 'sound' (knobs, kit, light, swing, drift, tempo) */
@@ -611,7 +611,7 @@
 
   function pump() {
     const now = A.now();
-    while (nextTime < now + 0.18) {
+    while (nextTime < now + A.lookahead) {
       play(tick, nextTime);
       nextTime += stepDur();
       tick++;

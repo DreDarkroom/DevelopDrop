@@ -84,11 +84,13 @@
         c.classList.remove('ghost');
         c.style.fillOpacity = '';
       });
-      wrap.addEventListener('contextmenu', (e) => { e.preventDefault(); toggleMute(S.PARTS[i]); });
-      wrap.title = 'Right-click to mute';
-      wrap.append(svg, info, ctl);
+      wrap.addEventListener('contextmenu', (e) => { e.preventDefault(); ringMenu(e, i); });
+      wrap.addEventListener('wheel', wheelLevel(S.PARTS[i]), { passive: false });
+      wrap.title = 'Right-click for more · mouse wheel over it for a fine level';
+      const lvl = el('div', 'lvl');
+      wrap.append(svg, info, lvl, ctl);
       host.append(wrap);
-      rings[i] = { svg, info, dots: [], now: -1, wrap };
+      rings[i] = { svg, info, dots: [], now: -1, wrap, lvl };
       renderRing(i);
     });
   }
@@ -160,6 +162,7 @@
         const b = el('button', 'cell' + (col % 4 === 0 ? ' beat' : ''));
         b.type = 'button';
         b.setAttribute('aria-label', `step ${col + 1}, degree ${row + 1}`);
+        b.dataset.col = col;
         b.addEventListener('click', () => {
           const p = S.synth.pattern;
           p[col] = p[col] === row ? -1 : row;
@@ -167,15 +170,17 @@
           if (A.ready && p[col] >= 0) A.note(A.now() + 0.01, S.midi(row), 0.7, 0.18, false);
           b.blur();
         });
-        b.addEventListener('contextmenu', (e) => {
-          e.preventDefault();
-          S.synth.pattern[col] = -1;
-          paintRoll();
-        });
         (cells[col] = cells[col] || [])[row] = b;
         roll.append(b);
       }
     }
+    roll.addEventListener('contextmenu', bassMenu);
+    roll.addEventListener('wheel', wheelLevel('bass'), { passive: false });
+    roll.title = 'Right-click for more · mouse wheel over it for a fine level';
+    const lvl = el('div', 'lvl');
+    lvl.id = 'basslvl';
+    roll.parentElement.append(lvl);
+    lvlEls.bass = lvl;
     paintRoll();
   }
 
@@ -195,6 +200,156 @@
     if (what !== 'drums') paintRoll();
     if (what !== 'bass') { S.drummers.forEach((d, i) => renderRing(i)); paintGhosts(); }
     toast(what === 'bass' ? 'Bass line cleared. Click the grid to write your own.' : what === 'drums' ? 'Drums cleared. Click the rings to write them.' : 'Everything cleared. You have a blank page.');
+  }
+
+  /* ---- part levels: the mouse wheel over a part trims it in tiny steps (a quarter of a decibel a notch; Shift = 1 dB, Alt = 0.05 dB) ---- */
+  const lvlEls = {};
+  const dbOf = (part) => A.params[part + 'Db'] || 0;
+  const fmtDb = (d) => `${d > 0.004 ? '+' : d < -0.004 ? '−' : ''}${Math.abs(d).toFixed(2)} dB`;
+  const lvlTimers = {};
+
+  function paintLevel(part, flashIt) {
+    const box = part === 'bass' ? lvlEls.bass : rings[S.PARTS.indexOf(part)] && rings[S.PARTS.indexOf(part)].lvl;
+    if (!box) return;
+    const db = dbOf(part);
+    box.textContent = fmtDb(db);
+    box.classList.toggle('has', Math.abs(db) > 0.004);
+    if (flashIt) {
+      box.classList.add('show');
+      clearTimeout(lvlTimers[part]);
+      lvlTimers[part] = setTimeout(() => box.classList.remove('show'), 1600);
+    }
+  }
+
+  function setPartDb(part, db) {
+    A.setParam(part + 'Db', Math.round(clamp(db, A.DB_RANGE[0], A.DB_RANGE[1]) * 100) / 100);
+    paintLevel(part, true);
+  }
+
+  function wheelLevel(part) {
+    return (e) => {
+      if (e.ctrlKey) return;                                    // a pinch-zoom gesture, not ours
+      e.preventDefault();
+      const unit = e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 400 : 1;
+      const notches = clamp(((e.deltaY || e.deltaX) * unit) / 100, -3, 3);   // a trackpad sends many small ones: they add up to the same
+      const stepDb = e.shiftKey ? 1 : e.altKey ? 0.05 : 0.25;
+      setPartDb(part, dbOf(part) - notches * stepDb);          // wheel down = quieter
+    };
+  }
+
+  /* the wheel over any slider nudges it very finely (a thousandth of its range a notch; Shift = a hundredth) */
+  function wheelSliders() {
+    document.addEventListener('wheel', (e) => {
+      const r = e.target.closest && e.target.closest('input[type="range"]');
+      if (!r || e.ctrlKey || PB.perf) return;
+      e.preventDefault();
+      const unit = e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 400 : 1;
+      const notches = clamp(((e.deltaY || e.deltaX) * unit) / 100, -3, 3);
+      r.value = clamp(+r.value - notches * (r.max - r.min) * (e.shiftKey ? 0.01 : 0.001), +r.min, +r.max);
+      r.dispatchEvent(new Event('input', { bubbles: true }));
+    }, { passive: false });
+  }
+
+  /* ---- the small context menu (right-click on the bass grid or a drummer) ---- */
+  let ctxEl = null;
+
+  function closeCtx() {
+    if (ctxEl) { ctxEl.remove(); ctxEl = null; }
+  }
+
+  /** items: [label, fn] or [label, fn, {dim: true}] or '-' . Opens at the pointer and stays inside the window. */
+  function openCtx(x, y, title, items) {
+    closeCtx();
+    const m = el('div');
+    m.id = 'ctx';
+    m.setAttribute('role', 'menu');
+    if (title) m.append(el('div', 'ctxh', title));
+    for (const it of items) {
+      if (it === '-') { m.append(el('hr')); continue; }
+      const b = el('button', it[2] && it[2].dim ? 'dim' : null, it[0]);
+      b.type = 'button';
+      b.setAttribute('role', 'menuitem');
+      b.addEventListener('click', () => { closeCtx(); it[1](); });
+      m.append(b);
+    }
+    document.body.append(m);
+    const r = m.getBoundingClientRect();
+    m.style.left = `${clamp(x, 6, innerWidth - r.width - 6)}px`;
+    m.style.top = `${clamp(y, 6, innerHeight - r.height - 6)}px`;
+    ctxEl = m;
+    const first = m.querySelector('button');
+    if (first) first.focus({ preventScroll: true });
+  }
+
+  document.addEventListener('pointerdown', (e) => { if (ctxEl && !e.target.closest('#ctx')) closeCtx(); }, true);
+  addEventListener('resize', closeCtx);
+  addEventListener('blur', closeCtx);
+
+  const NOTE_NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
+
+  function solo(part) {
+    const others = S.PARTS.filter((p) => p !== part);
+    const isSolo = !S.mute[part] && others.every((p) => S.mute[p]);
+    others.forEach((p) => S.toggleMute(p, !isSolo));
+    S.toggleMute(part, false);
+    paintMutes();
+  }
+
+  const isSolo = (part) => !S.mute[part] && S.PARTS.filter((p) => p !== part).every((p) => S.mute[p]);
+
+  function levelItem(part) {
+    return [`Level ${fmtDb(dbOf(part))}: reset to 0`, () => { setPartDb(part, 0); }, { dim: Math.abs(dbOf(part)) < 0.005 }];
+  }
+
+  function bassMenu(e) {
+    e.preventDefault();
+    if (PB.perf) return;
+    const cell = e.target.closest('.cell'), p = S.synth.pattern;
+    const items = [
+      [S.mute.bass ? 'Bring the bass back' : 'Mute the bass', () => toggleMute('bass')],
+      [isSolo('bass') ? 'Bring the others back' : 'Solo the bass', () => solo('bass')],
+      '-',
+    ];
+    if (cell && p[+cell.dataset.col] >= 0) items.push([`Clear step ${+cell.dataset.col + 1}`, () => { p[+cell.dataset.col] = -1; paintRoll(); }]);
+    items.push(
+      ['Clear the bass line', () => clearPart('bass')],
+      ['Fill with a new line', () => {
+        const pool = [0, 0, 0, 2, 3, 4, 5, 7];
+        S.synth.pattern = Array.from({ length: 16 }, (_, i) => (Math.random() < (i % 4 === 0 ? 0.8 : 0.4) ? pool[Math.floor(Math.random() * pool.length)] : -1));
+        S.home = S.synth.pattern.slice();
+        paintRoll();
+      }],
+      ['Shift the line left', () => { const q = S.synth.pattern; q.push(q.shift()); S.home = q.slice(); paintRoll(); }],
+      ['Shift the line right', () => { const q = S.synth.pattern; q.unshift(q.pop()); S.home = q.slice(); paintRoll(); }],
+      ['↺ Back to the saved loop', () => { S.goHome(); paintRoll(); }],
+      '-',
+      [`Key up (now ${NOTE_NAMES[A.params.root % 12]})`, () => { A.setParam('root', clamp(A.params.root + 1, 33, 57)); toast(`Key: ${NOTE_NAMES[A.params.root % 12]}`, 1600); }],
+      ['Key down', () => { A.setParam('root', clamp(A.params.root - 1, 33, 57)); toast(`Key: ${NOTE_NAMES[A.params.root % 12]}`, 1600); }],
+      ['Record a bass clip', () => $('#clipbass').click()],
+      '-',
+      levelItem('bass'),
+    );
+    openCtx(e.clientX, e.clientY, 'Bass', items);
+  }
+
+  function ringMenu(e, i) {
+    e.preventDefault();
+    if (PB.perf) return;
+    const part = S.PARTS[i], d = S.drummers[i];
+    const redo = () => { renderRing(i); paintGhosts(); };
+    openCtx(e.clientX, e.clientY, d.name[0].toUpperCase() + d.name.slice(1), [
+      [S.mute[part] ? `Bring the ${PART_LABEL[part]} back` : `Mute the ${PART_LABEL[part]}`, () => toggleMute(part)],
+      [isSolo(part) ? 'Bring the others back' : `Solo the ${PART_LABEL[part]}`, () => solo(part)],
+      '-',
+      ['More hits', () => { d.hits = Math.min(d.len, d.hits + 1); S.regen(i); redo(); }],
+      ['Fewer hits', () => { d.hits = Math.max(0, d.hits - 1); S.regen(i); redo(); }],
+      ['Turn it left', () => { d.steps.push(d.steps.shift()); redo(); }],
+      ['Turn it right', () => { d.steps.unshift(d.steps.pop()); redo(); }],
+      ['Make a new pattern', () => { d.hits = 2 + Math.floor(Math.random() * Math.max(2, d.len / 2 - 1)); d.rot = Math.floor(Math.random() * d.len); S.regen(i); redo(); }],
+      ['Clear', () => { d.steps = new Array(d.len).fill(false); d.hits = 0; redo(); }],
+      '-',
+      levelItem(part),
+    ]);
   }
 
   /* ---- knobs, named for the tray they belong to ---- */
@@ -641,6 +796,7 @@
     paintClips();
     paintJourney();
     syncs.forEach((f) => f());
+    S.PARTS.forEach((p) => paintLevel(p));
     setLight(S.light);
   }
 
@@ -798,6 +954,7 @@
     } else S.start();
     $('#play').textContent = S.playing ? 'stop' : 'play';
     paintJourney();
+    paintBattery();
     updateWake();
   }
 
@@ -818,6 +975,7 @@
   SS.onEvent = function (e) {
     switch (e.type) {
       case 'step':
+        batteryBeat(e.a);
         if (nowCol >= 0) for (const c of cells[nowCol]) c.classList.remove('now');
         nowCol = e.a;
         for (const c of cells[nowCol]) c.classList.add('now');
@@ -891,6 +1049,7 @@
 
   document.addEventListener('fullscreenchange', () => {
     if (!document.fullscreenElement && isClean() && !qs.get('clean')) setClean(false); // Esc leaves clean mode too
+    paintFullscreen();
   });
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
@@ -898,6 +1057,142 @@
       if (A.ready) A.resume();
     }
   });
+
+  /* ---- fullscreen (on any device) and the set clock ---- */
+  const inFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+
+  function paintFullscreen() {
+    document.body.classList.toggle('fs', inFullscreen());
+    const b = $('#full');
+    if (b) { b.setAttribute('aria-pressed', String(inFullscreen())); b.textContent = inFullscreen() ? 'exit full' : 'full'; }
+    paintClock();
+  }
+
+  /* From the moment the sound starts: elapsed time on the audio clock. Click it to see the time of day instead. Only drawn while it is visible. */
+  let clockT0 = null, clockMode = 'elapsed', clockText = '';
+
+  const clockVisible = () => document.body.classList.contains('fs') || isClean();   // the same test the stylesheet uses
+
+  function paintClock() {
+    const c = $('#clock');
+    if (!c || !clockVisible()) return;
+    let text;
+    if (clockMode === 'day') {
+      const d = new Date();
+      text = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+    } else {
+      const secs = clockT0 == null || !A.ready ? 0 : Math.max(0, Math.floor(A.now() - clockT0));
+      text = secs >= 3600 ? `${Math.floor(secs / 3600)}:${pad2(Math.floor(secs / 60) % 60)}:${pad2(secs % 60)}` : `${pad2(Math.floor(secs / 60))}:${pad2(secs % 60)}`;
+    }
+    if (text !== clockText) { clockText = text; c.textContent = text; }
+    c.title = clockMode === 'day' ? 'Time of day (click for time since the music started)' : 'Time since the music started (click for the time of day)';
+  }
+
+  function buildClock() {
+    $('#clock').addEventListener('click', () => { clockMode = clockMode === 'elapsed' ? 'day' : 'elapsed'; clockText = ''; paintClock(); });
+    setInterval(paintClock, 1000);
+    paintFullscreen();
+  }
+
+  /* ---- the battery saver ---- */
+  let ecoOn = false;
+
+  function setEco(on, why, persist = true) {
+    ecoOn = !!on;
+    A.setEco(ecoOn);
+    V.setEco(ecoOn);
+    const b = $('#eco');
+    if (b) b.setAttribute('aria-pressed', String(ecoOn));
+    if (persist) { try { localStorage.setItem('dd.eco', ecoOn ? '1' : '0'); } catch (err) { /* fine */ } }
+    if (why) toast(why, 6000);
+  }
+
+  function buildEco() {
+    $('#eco').addEventListener('click', (e) => {
+      setEco(!ecoOn, ecoOn ? null : 'Battery saver on: a smaller picture at 30 frames a second, no reverb room, simpler hats. Cooler and kinder to the battery.');
+      if (!ecoOn) toast('Battery saver off.', 2000);
+      e.currentTarget.blur();
+    });
+    let pref = null;
+    try { pref = localStorage.getItem('dd.eco'); } catch (err) { /* fine */ }
+    setEco(qs.get('eco') != null ? qs.get('eco') === '1' : pref != null ? pref === '1' : isTouchDevice(), null, false);   // a phone starts in battery saver
+  }
+
+  /* ---- the battery indicator: a small row of cells; it flashes in time with the music when low, and twice as fast when very low ---- */
+  let batt = null, battWarned = 0;
+
+  async function buildBattery() {
+    const host = $('#battery');
+    const fake = qs.get('battery');                         // ?battery=0.12 (or 0.5c for charging) previews the indicator, and is how it is tested
+    if (fake != null && isFinite(parseFloat(fake))) {
+      batt = Object.assign(new EventTarget(), { level: clamp(parseFloat(fake), 0, 1), charging: /c$/i.test(fake), dischargingTime: Infinity });
+    } else {
+      if (!navigator.getBattery) return;                   // Safari and Firefox do not offer it: nothing is shown
+      try { batt = await navigator.getBattery(); } catch (err) { return; }
+    }
+    const SVGNS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(SVGNS, 'svg');
+    svg.setAttribute('viewBox', '0 0 34 14');
+    svg.setAttribute('aria-hidden', 'true');
+    const body = document.createElementNS(SVGNS, 'rect');
+    body.setAttribute('x', '0.5'); body.setAttribute('y', '0.5'); body.setAttribute('width', '29'); body.setAttribute('height', '13'); body.setAttribute('rx', '3.5');
+    body.setAttribute('class', 'bshell');
+    const nub = document.createElementNS(SVGNS, 'rect');
+    nub.setAttribute('x', '31'); nub.setAttribute('y', '4.5'); nub.setAttribute('width', '2.5'); nub.setAttribute('height', '5'); nub.setAttribute('rx', '1');
+    nub.setAttribute('class', 'bshell fill');
+    svg.append(body, nub);
+    const cellsEl = [];
+    for (let i = 0; i < 10; i++) {
+      const r = document.createElementNS(SVGNS, 'rect');
+      r.setAttribute('x', String(2.4 + i * 2.65)); r.setAttribute('y', '2.6'); r.setAttribute('width', '1.9'); r.setAttribute('height', '8.8'); r.setAttribute('rx', '0.8');
+      r.setAttribute('class', 'bcell');
+      svg.append(r);
+      cellsEl.push(r);
+    }
+    const bolt = document.createElementNS(SVGNS, 'path');
+    bolt.setAttribute('d', 'M16.5 2.2 L11.5 8 H15 L13.8 11.8 L18.8 6 H15.3 Z');
+    bolt.setAttribute('class', 'bbolt');
+    svg.append(bolt);
+    const pct = el('span', 'bpct');
+    host.replaceChildren(svg, pct);
+    host.hidden = false;
+    batt._ui = { host, cellsEl, pct };
+    const update = () => { paintBattery(); };
+    batt.addEventListener('levelchange', update);
+    batt.addEventListener('chargingchange', update);
+    update();
+  }
+
+  const battCritical = () => batt && !batt.charging && batt.level <= 0.15;
+  const battUrgent = () => batt && !batt.charging && batt.level <= 0.07;
+
+  function paintBattery() {
+    if (!batt || !batt._ui) return;
+    const { host, cellsEl, pct } = batt._ui, lit = Math.ceil(batt.level * 10 - 1e-6);
+    cellsEl.forEach((c, i) => c.classList.toggle('on', i < lit));
+    pct.textContent = `${Math.round(batt.level * 100)}%`;
+    host.classList.toggle('chg', !!batt.charging);
+    host.classList.toggle('low', !batt.charging && batt.level <= 0.3);
+    host.classList.toggle('crit', !!battCritical());
+    host.classList.toggle('urgent', !!battUrgent());
+    host.classList.toggle('still', !S.playing);            // not playing: a slow pulse instead of the beat
+    const left = isFinite(batt.dischargingTime) && batt.dischargingTime > 0 ? `, about ${Math.floor(batt.dischargingTime / 3600)} h ${Math.round((batt.dischargingTime % 3600) / 60)} min left` : '';
+    host.title = `Battery ${Math.round(batt.level * 100)}%${batt.charging ? ', charging' : left}`;
+    // a low battery turns the battery saver on by itself, once, so the set lasts (you can turn it off again)
+    if (!batt.charging && batt.level <= 0.2 && !ecoOn && !battWarned) {
+      battWarned = 1;
+      setEco(true, `Battery at ${Math.round(batt.level * 100)}%: battery saver is on so it lasts. (The eco button turns it off.)`, false);
+    }
+    if (batt.charging || batt.level > 0.25) battWarned = 0;
+  }
+
+  /** Called on every sixteenth: a low battery blinks on the beat, a very low one on every eighth. */
+  function batteryBeat(stepIdx) {
+    if (!batt || !batt._ui || !battCritical() || !S.playing) return;
+    if (stepIdx % (battUrgent() ? 2 : 4) !== 0) return;
+    const h = batt._ui.host;
+    if (h.animate) h.animate([{ opacity: 1, filter: 'brightness(2.2)' }, { opacity: 0.35, filter: 'brightness(1)' }], { duration: battUrgent() ? 160 : 260, easing: 'ease-out' });
+  }
 
   /* ---- help card ---- */
   function toggleHelp(force) {
@@ -964,7 +1259,8 @@
       }
       if (e.repeat) return;
       if (k === 'escape') {
-        if (menuOpen) closeMenu();
+        if (ctxEl) closeCtx();
+        else if (menuOpen) closeMenu();
         else if (midiOpen) toggleMidi(false);
         else if (journeyOpen) toggleJourneyPop(false);
         else if (!$('#help').hidden) toggleHelp(false);
@@ -973,6 +1269,7 @@
       else if (k === '`') document.body.classList.toggle('bare');   // hide/show the panel (H is a piano key now)
       else if (k === '?') toggleHelp();
       else if (k === 'c') setClean(!isClean());
+      else if (k === 'f' && e.shiftKey) toggleFullscreen();             // plain F is a piano key
       else if (k === 'q') toast(`Picture quality: ${V.cycleQuality()}`);
       else if (k >= '1' && k <= '3') setLight(+k - 1);
       else if (k === '0') toggleDarkroom();
@@ -1120,6 +1417,7 @@
 
   function buildMobile() {
     $('#full').addEventListener('click', (e) => { toggleFullscreen(); e.currentTarget.blur(); });
+    paintFullscreen();
     const sheet = $('#sheet');
     const paint = () => {
       const min = document.body.classList.contains('sheet-min');
@@ -1265,7 +1563,9 @@
   async function powerOn() {
     document.body.classList.add('lit');
     await A.init();
+    if (clockT0 == null) clockT0 = A.now();                  // the set clock starts when the music does
     S.start();
+    paintBattery();
     $('#play').textContent = 'stop';
     updateWake();
   }
@@ -1281,6 +1581,7 @@
   }
 
   function init() {
+    A.profile = qs.get('profile') || (isTouchDevice() ? 'mobile' : 'desktop');   // decided before any audio exists
     buildDrummers();
     buildRoll();
     buildKnobs();
@@ -1290,6 +1591,11 @@
     buildPlaybackBar();
     buildDrop();
     buildMobile();
+    buildClock();
+    buildEco();
+    buildBattery();
+    wheelSliders();
+    S.PARTS.forEach((p) => paintLevel(p));
     buildMidi();
     watchAudio();
     keys();

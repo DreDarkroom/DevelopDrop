@@ -39,16 +39,17 @@
   const SLOW_FPS = 36, SLOW_SECONDS = 4;        // this many slow seconds in a row: step down a level
   const GOOD_FPS = 44;
   V.recoverAfter = 120;                         // this many smooth seconds (a slow one costs 10) before trying one level up
-  let mode = 'auto', level = 2, slowSecs = 0, goodSecs = 0, lastUp = -1e9, noUpUntil = 0;
+  let mode = 'auto', level = 2, slowSecs = 0, goodSecs = 0, lastUp = -1e9, noUpUntil = 0, eco = false, lastDraw = 0;
   V.replay = false;                      // the player sets this: the recording decides the kaleidoscope, not chance
   V.stats = { fps: 0, frameMs: 0, level: 'high', mode: 'auto', downgrades: 0, upgrades: 0, recovery: 0, errors: 0, scene: 0, sections: {} };
 
-  const setN = (n) => { st.n = Math.min(n, LEVELS[level].maxN); };
+  const maxN = () => (eco ? Math.min(8, LEVELS[level].maxN) : LEVELS[level].maxN);
+  const setN = (n) => { st.n = Math.min(n, maxN()); };
   V.setKaleido = setN;
 
   function applyLevel(i) {
     level = Math.max(0, Math.min(LEVELS.length - 1, i));
-    st.n = Math.min(st.n, LEVELS[level].maxN);
+    st.n = Math.min(st.n, maxN());
     V.stats.level = LEVELS[level].name;
     if (stage) resize();
   }
@@ -62,6 +63,16 @@
     slowSecs = 0; goodSecs = 0;
     return m;
   };
+  /** The battery saver: a small picture at 30 frames a second, fewer folds. The quality manager stands down while it is on. */
+  V.setEco = (on) => {
+    on = !!on;
+    if (on === eco) return;
+    eco = on;
+    V.stats.eco = on;
+    st.n = Math.min(st.n, maxN());
+    if (stage) resize();
+  };
+
   V.cycleQuality = () => V.setQuality({ auto: 'high', high: 'medium', medium: 'low', low: 'auto' }[mode]);
 
   V.init = function () {
@@ -95,7 +106,7 @@
   };
 
   function resize() {
-    DPR = Math.min(window.devicePixelRatio || 1, LEVELS[level].scale);
+    DPR = Math.min(window.devicePixelRatio || 1, eco ? Math.min(0.55, LEVELS[level].scale) : LEVELS[level].scale);
     W = Math.floor(innerWidth * DPR);
     H = Math.floor(innerHeight * DPR);
     for (const c of [stage, fb, fog]) {
@@ -191,7 +202,7 @@
 
   /* ---- events from the sequencer, released when the audio clock reaches them ---- */
   function pump() {
-    const q = SS.events, now = A.now();
+    const q = SS.events, now = A.now() - A.lag();       // events are released when they are HEARD, not when they are scheduled
     while (q.length && q[0].t <= now) {
       const e = q.shift();
       if (e.type === 'kick') {
@@ -421,6 +432,8 @@
 
   function frame(ms) {
     requestAnimationFrame(frame);                       // schedule first: an error below must never stop the loop
+    if (eco && ms - lastDraw < 25) return;              // eco: every other frame on a 60 Hz screen
+    lastDraw = ms;
     const raw = (ms - last) / 1000;
     last = ms;
     const dt = Math.min(0.05, raw || 0.016);
@@ -441,6 +454,7 @@
       V.stats.fps = Math.round(fps);
       V.stats.sections = { sim: +prof.sim.toFixed(1), compose: +prof.compose.toFixed(1), finish: +prof.finish.toFixed(1) };
       acc = 0; accN = 0; statsAt = ms;
+      if (eco) { slowSecs = 0; goodSecs = 0; return; }   // the quality manager judges full-speed frames only
       slowSecs = fps < SLOW_FPS ? slowSecs + 1 : 0;
       goodSecs = fps >= GOOD_FPS ? goodSecs + 1 : Math.max(0, goodSecs - 10);
       V.stats.recovery = mode === 'auto' && level < 2 ? Math.min(100, Math.round((goodSecs / V.recoverAfter) * 100)) : 0;
