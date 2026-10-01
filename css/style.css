@@ -36,7 +36,7 @@ body::after {
 }
 
 #mast { position: fixed; top: 16px; left: 18px; z-index: 5; display: flex; flex-direction: column; gap: 2px; pointer-events: none; text-transform: none; }
-#mast small { text-transform: uppercase; }
+#mast small { text-transform: none; }   /* the aliases keep their exact casing */
 #mast i { font-style: normal; color: var(--dim); }
 #mast b { font-weight: 600; }
 #mast small { color: var(--dim); font-size: 9px; }
