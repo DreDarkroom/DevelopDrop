@@ -1,4 +1,4 @@
-/* SquidgySqueegee — recording and export.
+/* DevelopDrop — recording and export.
    Ways to keep a set:
      wav    24-bit lossless, streamed to disk where the browser allows it (Chrome / Edge), so a long set never fills memory
      mp3    320 kbps, encoded live in a background worker (LAME via lamejs, loaded only when chosen)
@@ -221,7 +221,7 @@ onmessage=(e)=>{const d=e.data;
         capture = await makeCapture((l, r) => worker.postMessage({ l, r }, [l.buffer, r.buffer]));
         job = { done, worker };
       } else if (format === 'perf') {
-        sink = await openSink(`${SS.config.slug}-${stamp()}.sqz`, 'application/octet-stream', 'sqz', 'SquidgySqueegee performance');
+        sink = await openSink(`${SS.config.slug}-${stamp()}.sqz`, 'application/octet-stream', 'sqz', 'DevelopDrop performance');
         SS.perf.start(A.now(), SS.seq.snapshot('loop'));
         A.hook = SS.perf.log;
       } else if (VIDEO[format]) {
@@ -241,7 +241,7 @@ onmessage=(e)=>{const d=e.data;
         }
         sink = await openSink(`${SS.config.slug}-${stamp()}.${ext}`, vt.split(';')[0], ext, 'Video');
         if (cfg.perf) {
-          psink = await openSink(`${SS.config.slug}-${stamp()}.sqz`, 'application/octet-stream', 'sqz', 'SquidgySqueegee performance');
+          psink = await openSink(`${SS.config.slug}-${stamp()}.sqz`, 'application/octet-stream', 'sqz', 'DevelopDrop performance');
           SS.perf.start(A.now(), SS.seq.snapshot('loop'));
           A.hook = SS.perf.log;
         }

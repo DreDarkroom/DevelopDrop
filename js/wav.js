@@ -1,4 +1,4 @@
-/* SquidgySqueegee — WAV writing. Pure functions (no browser APIs) so they can be tested in Node.
+/* DevelopDrop — WAV writing. Pure functions (no browser APIs) so they can be tested in Node.
    24-bit PCM is lossless for everything this instrument makes; the header is written first with placeholder
    sizes and patched when the recording ends, so a long set can be streamed to disk without holding it in memory. */
 (function (SS) {

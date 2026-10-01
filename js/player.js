@@ -1,4 +1,4 @@
-/* SquidgySqueegee — the performance player page: a small transport bar over the shared playback engine (js/playback.js). */
+/* DevelopDrop — the performance player page: a small transport bar over the shared playback engine (js/playback.js). */
 (function (SS) {
   'use strict';
 

@@ -109,9 +109,9 @@ test('an hour of typical output stays compact', async () => {
 test('hostile or damaged files are rejected or cleaned, never trusted', async () => {
   const { perf } = load('perfrec.js');
   const bad = (o) => perf.decode(new TextEncoder().encode(typeof o === 'string' ? o : JSON.stringify(o)));
-  await assert.rejects(bad('not json'), /not a SquidgySqueegee/);
-  await assert.rejects(bad({ app: 'other', kind: 'performance', events: [] }), /not a SquidgySqueegee/);
-  await assert.rejects(bad({ app: 'SquidgySqueegee', kind: 'loop', events: [] }), /not a SquidgySqueegee/);
+  await assert.rejects(bad('not json'), /not a DevelopDrop/);
+  await assert.rejects(bad({ app: 'other', kind: 'performance', events: [] }), /not a DevelopDrop/);
+  await assert.rejects(bad({ app: 'SquidgySqueegee', kind: 'loop', events: [] }), /not a DevelopDrop/);
   await assert.rejects(bad({ app: 'SquidgySqueegee', kind: 'performance', version: 99, events: [] }), /newer/);
   const cleaned = await bad({
     app: 'SquidgySqueegee', kind: 'performance', version: 1, duration: 'x', events: [

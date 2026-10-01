@@ -1,11 +1,11 @@
-/* SquidgySqueegee — the few settings a person might change. */
+/* DevelopDrop — the few settings a person might change. */
 (function (SS) {
   'use strict';
   SS.config = {
     version: '3.0.0',
     // The project's name and the prefix for saved files. One place, so a rename is one edit.
-    name: 'SquidgySqueegee',
-    slug: 'squidgysqueegee',
+    name: 'DevelopDrop',
+    slug: 'developdrop',
     // Where the "suggest" link sends messages. Leave empty and the link simply isn't shown.
     // Use a dedicated alias, never a personal address.
     suggestEmail: '',

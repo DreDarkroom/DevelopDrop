@@ -1,4 +1,4 @@
-/* SquidgySqueegee — the compact "performance" format (.sqz).
+/* DevelopDrop — the compact "performance" format (.sqz).
    Not audio: a recording of WHAT THE INSTRUMENT DID (every note, drum hit, knob move, light change and squeegee stroke,
    with its exact time). The stand-alone player (player.html) re-plays it through the same synth and visuals, so an hour-long
    set is a few hundred KB instead of hundreds of MB, and it plays back in any browser.
@@ -89,14 +89,14 @@
     try {
       doc = JSON.parse(new TextDecoder().decode(u8));
     } catch (err) {
-      throw new Error('not a SquidgySqueegee performance file');
+      throw new Error('not a DevelopDrop performance file');
     }
     return perf.validate(doc);
   };
 
   perf.validate = function (doc) {
     if (!doc || doc.app !== 'SquidgySqueegee' || doc.kind !== 'performance' || !Array.isArray(doc.events)) {
-      throw new Error('not a SquidgySqueegee performance file');
+      throw new Error('not a DevelopDrop performance file');
     }
     if (doc.version !== 1) throw new Error('this performance was made by a newer version');
     if (doc.events.length > MAX_EVENTS) throw new Error('performance is too large');

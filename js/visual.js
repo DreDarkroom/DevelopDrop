@@ -1,4 +1,4 @@
-/* SquidgySqueegee — the picture.
+/* DevelopDrop — the picture.
    A small scene (bead-chain tentacles, dot rings on every kick, confetti on every hat) is
    folded into a kaleidoscope, fed back into itself as a tunnel, tinted by the light you chose,
    and hidden behind a fog you wipe away with a squeegee. */
@@ -427,7 +427,7 @@
       draw(dt);
     } catch (err) {
       V.stats.errors++;
-      if (V.stats.errors === 1) console.error('SquidgySqueegee: a frame failed and was skipped', err);
+      if (V.stats.errors === 1) console.error('DevelopDrop: a frame failed and was skipped', err);
     }
     // performance bookkeeping (ignore the gap when the tab was hidden)
     if (raw > 0 && raw < 0.25) {

@@ -1,11 +1,11 @@
-# SquidgySqueegee
+# DevelopDrop
 
 A small instrument that lives in a browser tab. A bass synth, three drummers that play against each other, and a picture
 made of light: a kaleidoscope you wipe clear with a squeegee. No installs, no accounts, nothing leaves your computer.
 
 DreDarkroom, Safelight and SquidgySqueegee are DJ aliases.
 
-**Play it:** https://dredarkroom.github.io/squidgysqueegee/ (or open `index.html` from this folder). Press the bulb. Press **?** for a short how-to.
+**Play it:** https://dredarkroom.github.io/squidgysqueegee/ (the address keeps its earlier name for now) (or open `index.html` from this folder). Press the bulb. Press **?** for a short how-to.
 
 ## Playing
 

@@ -1,4 +1,4 @@
-/* SquidgySqueegee — MIDI controllers (Web MIDI).
+/* DevelopDrop — MIDI controllers (Web MIDI).
    Nothing is hard-coded to one device: every control is learned. Press "learn" next to an action (or run the quick map, which
    walks through the important ones), then press a button or move a knob. Mappings are kept in this browser and can be
    exported and imported. This module has no DOM: ui.js defines the actions and draws the panel.

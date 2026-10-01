@@ -1,4 +1,4 @@
-/* SquidgySqueegee — controls, keyboard, pointer, files dropped on the page, MIDI panel. */
+/* DevelopDrop — controls, keyboard, pointer, files dropped on the page, MIDI panel. */
 (function (SS) {
   'use strict';
 
@@ -9,7 +9,7 @@
   const qs = new URLSearchParams(location.search);
   const r3 = (v) => Math.round(v * 1000) / 1000;
   const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
-  const slug = () => SS.config.slug || 'squidgysqueegee';
+  const slug = () => SS.config.slug || 'developdrop';
 
   function el(tag, cls, text) {
     const e = document.createElement(tag);
@@ -913,7 +913,7 @@
     $('#ver').textContent = SS.config.version;
     const sug = $('#suggest');
     if (SS.config.suggestEmail) {
-      sug.href = `mailto:${SS.config.suggestEmail}?subject=${encodeURIComponent((SS.config.name || 'SquidgySqueegee') + ' suggestion')}&body=${encodeURIComponent('What would make it better?\n\n')}`;
+      sug.href = `mailto:${SS.config.suggestEmail}?subject=${encodeURIComponent((SS.config.name || 'DevelopDrop') + ' suggestion')}&body=${encodeURIComponent('What would make it better?\n\n')}`;
       sug.hidden = false;
     }
     const road = $('#roadmap');
