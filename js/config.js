@@ -1,8 +1,8 @@
-/* DevelopDrop Ã¢â‚¬â€ the few settings a person might change. */
+/* DevelopDrop ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â the few settings a person might change. */
 (function (SS) {
   'use strict';
   SS.config = {
-    version: '3.0.2',
+    version: '3.0.3',
     // The project's name and the prefix for saved files. One place, so a rename is one edit.
     name: 'DevelopDrop',
     slug: 'developdrop',
