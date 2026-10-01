@@ -63,4 +63,4 @@ An optional walk-through that highlights one control at a time and asks you to t
 
 - Less is more: a minimal interface, nothing that needs explaining twice.
 - Nothing leaves your computer unless you export or send it yourself; no accounts, no tracking.
-- DreDarkroom, Safelight and SquidgySqueegee are DJ aliases, stated plainly, with no added branding.
+- DreDarkroom, SafeLight and SquidgySqueegee are DJ aliases, stated plainly, with no added branding.
