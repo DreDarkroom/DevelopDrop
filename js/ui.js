@@ -1005,48 +1005,131 @@
         A.noteOff(A.now() + 0.005);
       }
     });
-    addEventListener('blur', () => { endBuild('key'); endBuild('mouse'); });   // never leave a build hanging when the window loses focus
+    addEventListener('blur', () => { endBuild('key'); endBuild('pointer'); endBuild('touch'); });   // never leave a build hanging when the window loses focus
   }
 
-  /* ---- pointer: the squeegee (left), build and drop (right or middle) ---- */
+  /* ---- pointer: one set of gestures for mouse, finger and pen ----
+     mouse   drag = squeegee · right or middle button held = build (middle: the other way) · release = drop
+     pen     pressure sets the blade (a light touch is fine and precise), the barrel button builds, the eraser end is ignored
+     finger  one finger = squeegee · two fingers held = build · three = the other way · release = drop · double-tap = hide or show the panel
+     A pen resting on the screen makes the palm look like touches: touches are ignored for a moment after any pen contact. */
+  const COARSE = matchMedia('(pointer: coarse)');
+  const isTouchDevice = () => COARSE.matches || navigator.maxTouchPoints > 0 && matchMedia('(hover: none)').matches;
+
   function pointer() {
     const stage = $('#stage');
-    let prev = null, quiet = 0;
+    const fingers = new Map();            // pointerId -> true, touches currently down on the picture
+    let strokeId = null, prev = null, quiet = 0, penAt = -1e9, moved = 0, downAt = 0, lastTap = { t: -1e9, x: 0, y: 0 }, buildTimer = 0;
+
     // A right-click is an instrument here, never a browser menu (which would also land in a screen recording).
     document.addEventListener('contextmenu', (e) => { if (!e.target.closest('input, select, textarea')) e.preventDefault(); });
-    stage.addEventListener('pointerdown', (e) => {
-      stage.setPointerCapture(e.pointerId);
-      if (e.button === 2 || e.button === 1) {
-        e.preventDefault();
-        startBuild(e.button === 1 || e.shiftKey ? 1 : 0, 'mouse');
-        return;
-      }
-      if (PB.perf) return;
-      prev = { x: e.clientX, y: e.clientY };
-    });
-    stage.addEventListener('pointermove', (e) => {
-      if (!prev) return;
-      V.wipe(e.clientX, e.clientY, prev.x, prev.y);
-      if (SS.perf) SS.perf.log(A.now(), 8, r3(e.clientX / innerWidth), r3(e.clientY / innerHeight), r3(prev.x / innerWidth), r3(prev.y / innerHeight));
-      const speed = Math.hypot(e.clientX - prev.x, e.clientY - prev.y) / 40;
-      const x = e.clientX / innerWidth;
-      A.setParam('mod', x);
-      A.squeak(speed, x);
-      prev = { x: e.clientX, y: e.clientY };
-      clearTimeout(quiet);
-      quiet = setTimeout(() => A.squeak(0), 90);
-    });
-    const up = (e) => {
-      if (e && (e.button === 2 || e.button === 1)) { endBuild('mouse'); return; }
-      if (!prev) return;
+
+    const endStroke = () => {
+      if (strokeId === null) return;
+      strokeId = null;
       prev = null;
       V.wipeEnd();
       A.setParam('mod', 0.5);
       A.squeak(0);
     };
-    stage.addEventListener('pointerup', up);
-    stage.addEventListener('pointercancel', (e) => { endBuild('mouse'); up(); });
+
+    stage.addEventListener('pointerdown', (e) => {
+      const now = performance.now();
+      if (e.pointerType === 'pen') penAt = now;
+      else if (e.pointerType === 'touch' && now - penAt < 700) return;           // palm rejection
+      if (e.pointerType === 'pen' && (e.button === 5 || (e.buttons & 32))) return; // the eraser end does nothing
+      try { stage.setPointerCapture(e.pointerId); } catch (err) { /* the pointer already ended: carry on */ }
+      if (e.button === 2 || e.button === 1) {
+        e.preventDefault();
+        startBuild(e.button === 1 || e.shiftKey ? 1 : 0, 'pointer');
+        return;
+      }
+      if (PB.perf) return;
+      if (e.pointerType === 'touch') {
+        fingers.set(e.pointerId, true);
+        if (fingers.size >= 2) {                                                 // a second finger turns the gesture into a build
+          endStroke();
+          clearTimeout(buildTimer);
+          buildTimer = setTimeout(() => startBuild(fingers.size >= 3 ? 1 : 0, 'touch'), 110);   // wait a beat in case a third finger follows
+          return;
+        }
+      }
+      strokeId = e.pointerId;
+      prev = { x: e.clientX, y: e.clientY };
+      moved = 0;
+      downAt = now;
+    });
+
+    stage.addEventListener('pointermove', (e) => {
+      if (e.pointerId !== strokeId || !prev) return;
+      // every point the device reported since the last event (a pen reports far more than the frame rate)
+      const pts = typeof e.getCoalescedEvents === 'function' && e.getCoalescedEvents().length ? e.getCoalescedEvents() : [e];
+      for (const q of pts) {
+        const size = e.pointerType === 'pen' ? clamp(0.2 + 0.95 * (q.pressure || 0.5), 0.2, 1.3) : 1;
+        V.wipe(q.clientX, q.clientY, prev.x, prev.y, size);
+        if (SS.perf) {
+          const args = [r3(q.clientX / innerWidth), r3(q.clientY / innerHeight), r3(prev.x / innerWidth), r3(prev.y / innerHeight)];
+          if (size !== 1) args.push(r3(size));
+          SS.perf.log(A.now(), 8, ...args);
+        }
+        const speed = Math.hypot(q.clientX - prev.x, q.clientY - prev.y) / 40;
+        const x = q.clientX / innerWidth;
+        A.setParam('mod', x);
+        A.squeak(speed * (e.pointerType === 'pen' ? 0.4 + (q.pressure || 0.5) : 1), x);
+        moved += Math.abs(q.clientX - prev.x) + Math.abs(q.clientY - prev.y);
+        prev = { x: q.clientX, y: q.clientY };
+      }
+      clearTimeout(quiet);
+      quiet = setTimeout(() => A.squeak(0), 90);
+    });
+
+    const release = (e) => {
+      if (e.button === 2 || e.button === 1) { endBuild('pointer'); return; }
+      if (e.pointerType === 'touch' && fingers.delete(e.pointerId) && fingers.size < 2) {
+        clearTimeout(buildTimer);
+        endBuild('touch');
+      }
+      if (e.pointerId !== strokeId) return;
+      const tap = moved < 10 && performance.now() - downAt < 280 && e.pointerType !== 'mouse' && e.type === 'pointerup';
+      endStroke();
+      if (tap) {                                                                   // double-tap hides or shows the panel
+        const now = performance.now();
+        if (now - lastTap.t < 320 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 40) { document.body.classList.toggle('bare'); lastTap.t = -1e9; }
+        else lastTap = { t: now, x: e.clientX, y: e.clientY };
+      }
+    };
+    stage.addEventListener('pointerup', release);
+    stage.addEventListener('pointercancel', (e) => { release(e); endBuild('pointer'); if (e.pointerType === 'touch') { fingers.clear(); endBuild('touch'); } });
     stage.addEventListener('auxclick', (e) => e.preventDefault());
+  }
+
+  /* ---- phones and tablets: the first tap (the safelight switch) also goes fullscreen; the panel is a sheet ---- */
+  function enterFullscreen() {
+    const d = document.documentElement;
+    if (document.fullscreenElement || document.webkitFullscreenElement) return;
+    try {
+      const r = d.requestFullscreen ? d.requestFullscreen({ navigationUI: 'hide' }) : d.webkitRequestFullscreen ? d.webkitRequestFullscreen() : null;
+      if (r && r.catch) r.catch(() => { /* refused (iPhones have no page fullscreen): carry on */ });
+    } catch (err) { /* same */ }
+  }
+
+  function toggleFullscreen() {
+    if (document.fullscreenElement || document.webkitFullscreenElement) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); }
+    else enterFullscreen();
+  }
+
+  function buildMobile() {
+    $('#full').addEventListener('click', (e) => { toggleFullscreen(); e.currentTarget.blur(); });
+    const sheet = $('#sheet');
+    const paint = () => {
+      const min = document.body.classList.contains('sheet-min');
+      sheet.setAttribute('aria-expanded', String(!min));
+      sheet.textContent = min ? 'more ▴' : 'less ▾';
+    };
+    sheet.addEventListener('click', () => { document.body.classList.toggle('sheet-min'); paint(); sheet.blur(); });
+    if (isTouchDevice() || innerWidth < 700) document.body.classList.add('sheet-min');   // a phone starts with the picture and the main controls
+    document.body.classList.toggle('touch', isTouchDevice());
+    paint();
   }
 
   /* ---- MIDI: learn any control. The actions are defined here, the mapping lives in midi.js ---- */
@@ -1206,13 +1289,17 @@
     buildHelp();
     buildPlaybackBar();
     buildDrop();
+    buildMobile();
     buildMidi();
     watchAudio();
     keys();
     pointer();
     setLight(S.light);
     $('#dre').addEventListener('click', toggleDarkroom);
-    $('#switch').addEventListener('click', powerOn);
+    $('#switch').addEventListener('click', () => {
+      if (isTouchDevice() && qs.get('fullscreen') !== '0') enterFullscreen();   // must happen synchronously inside the tap
+      powerOn();
+    });
     // a set is not something to lose to a stray Ctrl+W or F5
     addEventListener('beforeunload', (e) => {
       if (S.playing || R.state.active || PB.playing) { e.preventDefault(); e.returnValue = ''; }

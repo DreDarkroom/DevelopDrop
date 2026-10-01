@@ -33,7 +33,7 @@
     [K.param]: (at, key, v) => A.setParam(key, v),
     [K.expose]: (at, on) => { A.expose(!!on); V.setExpose(!!on); },
     [K.light]: (at, i) => setLight(i),
-    [K.wipe]: (at, x, y, px, py) => V.wipe(x * innerWidth, y * innerHeight, px * innerWidth, py * innerHeight),
+    [K.wipe]: (at, x, y, px, py, size) => V.wipe(x * innerWidth, y * innerHeight, px * innerWidth, py * innerHeight, size),
     [K.kaleido]: (at, n) => V.setKaleido(n),
     [K.squeak]: (at, speed, x) => A.squeak(speed, x),
     [K.sweep]: (at, which, hz, secs) => A.sweep(which ? 'lp' : 'hp', hz, at, secs),

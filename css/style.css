@@ -303,6 +303,84 @@ body.clean #stage { cursor: none; }
   #mast span { white-space: normal; }
 }
 
+
+/* ---- touch, pen and small screens ---- */
+body { -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; overscroll-behavior: none; }
+button, select, input[type="range"], label { touch-action: manipulation; }
+#build { touch-action: none; -webkit-user-select: none; user-select: none; }
+#sheet { display: none; }
+body.touch { -webkit-user-select: none; user-select: none; }
+body.touch #hint { display: none; }
+
+@media (max-width: 960px), (hover: none) and (pointer: coarse) {
+  #panel {
+    left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; gap: 14px; align-items: stretch;
+    padding: 8px calc(12px + env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));
+    border-radius: 16px 16px 0 0; border-bottom: 0;
+    max-height: 66vh; max-height: 66dvh; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  }
+  #sheet {
+    display: block; order: -2; position: sticky; top: 0; align-self: flex-end; z-index: 3; height: 32px; padding: 0 16px;
+    background: rgba(5, 0, 0, 0.92); border: 1px solid var(--line); border-radius: 16px; margin-bottom: -6px;
+  }
+  #panel { gap: 12px; }
+  #tools { display: contents; }                          /* the groups become children of the panel, so the quick ones can lead and the rest can follow the instrument */
+  #tools .group { gap: 6px; order: 5; padding-top: 10px; border-top: 1px solid var(--line); }
+  #tools .group.quick { order: -1; padding-top: 0; border-top: 0; }
+  #tools button, #tools select { height: 40px; min-width: 40px; padding: 0 12px; font-size: 12px; }
+  #build { flex: 1 1 150px; height: 48px; font-size: 13px; }
+  body.sheet-min #panel > :not(#sheet):not(#tools), body.sheet-min #tools .group:not(.quick) { display: none; }
+
+  #drummers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .drummer { width: auto; }
+  .drummer svg { width: 100%; max-width: 120px; height: auto; }
+  .ctl { display: grid; grid-template-columns: repeat(2, 38px); gap: 4px; }
+  .ctl button { min-width: 0; width: 38px; height: 38px; }
+  #roll { gap: 2px; }
+  .cell { height: 15px; }
+  #knobs { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 18px; }
+  #light { min-width: 0; }
+  #bulbs { flex-direction: row; }
+  .bulbbtn { flex: 1; padding: 8px; min-height: 44px; }
+
+  input[type="range"] { height: 30px; }
+  input[type="range"]::-webkit-slider-runnable-track { height: 2px; }
+  input[type="range"]::-webkit-slider-thumb { width: 22px; height: 22px; margin-top: -10px; }
+  input[type="range"]::-moz-range-thumb { width: 22px; height: 22px; }
+  #style, #tools select, .card select, .card input, .temporow input { font-size: 16px; }   /* anything under 16px makes iOS zoom the page on focus */
+  #style { height: 40px; }
+  .temporow input[type="number"], .temporow button { height: 40px; }
+
+  #mast { top: calc(10px + env(safe-area-inset-top)); left: calc(12px + env(safe-area-inset-left)); max-width: calc(100vw - 80px); }
+  #mast span { white-space: normal; }
+  #helpbtn { top: calc(8px + env(safe-area-inset-top)); right: calc(12px + env(safe-area-inset-right)); width: 38px; height: 38px; }
+  #armed { top: calc(52px + env(safe-area-inset-top)); right: calc(14px + env(safe-area-inset-right)); }
+  #toast, #notice { top: calc(56px + env(safe-area-inset-top)); }
+  #help { left: 8px; right: 8px; width: auto; top: calc(54px + env(safe-area-inset-top)); max-height: calc(100dvh - 70px - env(safe-area-inset-top)); }
+  #journeypop, #midipanel { left: 8px; right: 8px; width: auto; top: auto; bottom: calc(8px + env(safe-area-inset-bottom)); max-height: 80vh; max-height: 80dvh; overflow: auto; }
+  .card button, .card select, .card input[type="number"] { height: 38px; }
+  .card td button { height: 32px; }
+  #filesmenu { bottom: 46px; min-width: 230px; }
+  #filesmenu button { height: 40px; }
+  #pbar { flex-wrap: wrap; gap: 8px 12px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); bottom: 0; left: 0; right: 0; border-radius: 16px 16px 0 0; }
+  #pbar input[type="range"] { flex: 1 1 100%; order: 3; }
+  #pbar button { height: 40px; }
+  #ptime { min-width: 0; margin-left: auto; }
+}
+
+/* a phone on its side: the open panel becomes a column on the right, leaving the picture */
+@media (max-height: 520px) and (orientation: landscape) and (max-width: 960px), (max-height: 520px) and (orientation: landscape) and (hover: none) {
+  body:not(.sheet-min) #panel { left: auto; top: 0; width: min(52vw, 480px); max-height: none; border-radius: 16px 0 0 16px; border-bottom: 1px solid var(--line); }
+  body:not(.sheet-min) #sheet { margin-right: 46px; }   /* clear of the ? button */
+  body.sheet-min #panel { max-height: 46vh; max-height: 46dvh; }
+  #mast small, #hint { display: none; }
+}
+
+@media (max-width: 380px) {
+  #knobs { grid-template-columns: 1fr; }
+  #tools button, #tools select { padding: 0 9px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * { transition-duration: 0.01s !important; }
 }

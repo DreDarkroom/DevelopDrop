@@ -145,7 +145,9 @@
   };
 
   /* ---- the squeegee ---- */
-  V.wipe = function (cx, cy, px, py) {
+  /** One squeegee stroke segment. `size` (0.15 to 1.5, default 1) scales the blade: a pen's pressure makes it fine. */
+  V.wipe = function (cx, cy, px, py, size) {
+    const k = typeof size === 'number' && isFinite(size) ? Math.min(1.5, Math.max(0.15, size)) : 1;
     const x = cx * DPR, y = cy * DPR, ox = px * DPR, oy = py * DPR;
     const dx = x - ox, dy = y - oy;
     if (!dx && !dy) return;
@@ -154,7 +156,7 @@
     gctx.save();
     gctx.globalCompositeOperation = 'destination-out';
     gctx.lineCap = 'round';
-    gctx.lineWidth = 96 * DPR;
+    gctx.lineWidth = 96 * k * DPR;
     gctx.strokeStyle = '#000';
     gctx.beginPath();
     gctx.moveTo(ox, oy);
@@ -163,7 +165,7 @@
     gctx.restore();
 
     // drag the wet picture along with the blade
-    const r = 90 * DPR;
+    const r = 90 * k * DPR;
     fctx.save();
     fctx.beginPath();
     fctx.arc(x, y, r, 0, TAU);

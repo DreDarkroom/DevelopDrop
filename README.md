@@ -14,7 +14,7 @@ DreDarkroom, SafeLight and SquidgySqueegee are DJ aliases.
 | `a w s e d f t g y h u j k o l p` | play the bass like a keyboard (`h` is a note, not a shortcut) |
 | hold `space` (or hold the right mouse button) | **build**: the music thins out and climbs. Let go and the **drop** lands on the beat |
 | hold `Shift` + `space` (or the middle button) | build the other way: the mix sinks under water |
-| drag on the picture | squeegee the fog: it smears, squeaks and opens the filter |
+| drag on the picture | squeegee the fog: it smears, squeaks and opens the filter. A **stylus**'s pressure sets the blade: light is fine and precise, hard is broad |
 | `1` `2` `3` | change the light, which also changes the mode (Aeolian, Dorian, Lydian) |
 | `enter` | play / stop |
 | `z` `x` `v` `b` | mute or bring back kick, snare, hats, bass (right-click a ring too) |
@@ -33,6 +33,8 @@ Click the bass grid to write a line; click dots on the rings to change the drumm
 The drummers loop at different lengths, so the groove takes a long time to repeat.
 **Bounce** is swing. **Drift** lets the bass line wander around your loop (quiet ghost hats come and go too); at 0 it is exactly as written.
 **Level** is the overall volume and **Duck** is how far the bass dips under each kick.
+
+**Touch and pen.** One set of gestures for mouse, finger and stylus. One finger squeegees; **two fingers held** build and letting go drops; **three** build the other way; **double-tap** the picture hides or shows the panel. A pen's barrel button builds like the right mouse button, its eraser end is ignored, and a resting palm is ignored while a pen is in use. On a phone or tablet the first tap (the safelight switch) also goes fullscreen (add `?fullscreen=0` to the address to stop that; iPhones do not allow page fullscreen), the controls are a sheet at the bottom (a column on the right when the phone is on its side), and **more ▴** opens the rest.
 
 **Styles.** The style menu swaps in a whole starting point at the next bar: tempo, drum kit, bass, rings, sound, light and picture.
 There is a slow rolling one, a polyrhythmic minimal one, four-on-the-floor electro, a rave one, drum and bass at 174, *Slow Build* (only kick and hats, bring the rest in yourself) and a blank page.

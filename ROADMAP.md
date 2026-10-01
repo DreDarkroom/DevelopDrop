@@ -2,6 +2,12 @@
 
 A living list. Ideas are welcome: use the *Suggest something* link in the how-to card (press `?`) when it is there.
 
+## Shipped in 3.1
+
+- **Stylus support:** pressure sets the squeegee blade for fine, precise strokes; the barrel button builds; the eraser end and a resting palm are ignored; high-rate pen points are all used.
+- **One set of gestures for touch:** one finger squeegees, two fingers held build and release drops, three build the other way, double-tap hides the panel.
+- **A phone layout:** the first tap that starts the sound also goes fullscreen; the controls are a bottom sheet (a side column in landscape) with large touch targets, safe-area spacing and no accidental page zoom.
+
 ## Shipped in 3.0
 
 - **Build and drop.** Hold `space` (or the right mouse button, or the *build ▸ drop* button): the kick drops out, a snare roll accelerates, a filter climbs and a riser swells.
@@ -22,7 +28,7 @@ A living list. Ideas are welcome: use the *Suggest something* link in the how-to
 ## Next
 
 ### A phone as a remote control
-A second screen in your hand: pads for mutes and clips, a big build ▸ drop pad you hold, an XY pad for the filter and squeegee, style and tempo, with haptic feedback.
+A second screen in your hand (the page itself is now comfortable on a phone; this is about controlling the computer's page from one): pads for mutes and clips, a big build ▸ drop pad you hold, an XY pad for the filter and squeegee, style and tempo, with haptic feedback.
 The phone needs a way to talk to the page on the computer, which is the part that decides the design:
 
 - **No backend:** pair with a QR code over a direct peer-to-peer connection (WebRTC). Nothing is stored anywhere; it works on the same network and often across networks.

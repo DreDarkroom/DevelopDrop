@@ -338,3 +338,15 @@ test('performance files: new event codes validate, hostile ones are dropped, and
   assert.equal(later.scene, 1);
   assert.equal(P.stateAt(out.events, 0).scene, null);
 });
+
+test('performance files: a stylus stroke keeps its blade size, and non-numeric junk in a stroke is dropped', () => {
+  const P = load('perfrec.js').perf;
+  const out = P.validate({ app: 'SquidgySqueegee', kind: 'performance', version: 1, duration: 1, snapshot: {}, events: [
+    [0, 8, 0.5, 0.5, 0.4, 0.4, 0.3],       // x, y, previous x, previous y, size
+    [10, 8, 0.5, 0.5, 0.4, 0.4],           // an older file with no size
+    [10, 8, 0.5, { evil: 1 }],             // not a number or a string: dropped
+  ] });
+  assert.equal(out.events.length, 2);
+  assert.deepEqual(out.events[0].a, [0.5, 0.5, 0.4, 0.4, 0.3]);
+  assert.equal(out.events[1].a.length, 4);
+});
