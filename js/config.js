@@ -10,6 +10,6 @@
     // Use a dedicated alias, never a personal address.
     suggestEmail: '',
     // Where the roadmap lives (shown in the help card). Filled in when the site is published.
-    repoUrl: 'https://github.com/DreDarkroom/squidgysqueegee',
+    repoUrl: 'https://github.com/DreDarkroom/DevelopDrop',
   };
 })((window.SS = window.SS || { events: [] }));
