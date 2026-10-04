@@ -11,6 +11,13 @@
   const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
   const slug = () => SS.config.slug || 'developdrop';
 
+  /* Controls give up focus after a mouse click so the piano keys and the space bar keep working, but a person using the keyboard keeps their place:
+     the original blurred after every click, even one made with Enter, so tabbing through the controls lost your position each time. */
+  let usingKeyboard = false;
+  addEventListener('keydown', (e) => { if (e.key === 'Tab' || e.key === 'Enter') usingKeyboard = true; }, true);
+  addEventListener('pointerdown', () => { usingKeyboard = false; }, true);
+  const unfocus = (el) => { if (!usingKeyboard && el && el.blur) el.blur(); };
+
   function el(tag, cls, text) {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -65,7 +72,7 @@
           fn();
           S.regen(i);
           renderRing(i);
-          b.blur();
+          unfocus(b);
         });
         return b;
       };
@@ -131,7 +138,7 @@
       const b = el('button', 'mute', PART_LABEL[part]);
       b.type = 'button';
       b.title = `Mute or bring back the ${PART_LABEL[part]} (${Object.keys(MUTE_KEYS).find((k) => MUTE_KEYS[k] === part)})`;
-      b.addEventListener('click', () => { toggleMute(part); b.blur(); });
+      b.addEventListener('click', () => { toggleMute(part); unfocus(b); });
       host.append(b);
       muteBtns[part] = b;
     }
@@ -168,7 +175,7 @@
           p[col] = p[col] === row ? -1 : row;
           paintRoll();
           if (A.ready && p[col] >= 0) A.note(A.now() + 0.01, S.midi(row), 0.7, 0.18, false);
-          b.blur();
+          unfocus(b);
         });
         (cells[col] = cells[col] || [])[row] = b;
         roll.append(b);
@@ -410,7 +417,7 @@
       b.style.setProperty('--b', l.tint.join(','));
       b.addEventListener('click', () => {
         setLight(i);
-        b.blur();
+        unfocus(b);
       });
       host.append(b);
       bulbs[i] = b;
@@ -429,7 +436,7 @@
     });
     sel.value = S.style;
     sel.title = S.styles[S.style].note;
-    sel.addEventListener('change', () => { setStyle(+sel.value); sel.blur(); });
+    sel.addEventListener('change', () => { setStyle(+sel.value); unfocus(sel); });
     syncs.push(() => { sel.value = S.style; sel.title = S.styles[S.style].note; });
   }
 
@@ -467,8 +474,8 @@
     host.append(lab, row);
     tempoEls = { range, num, dnb };
     range.addEventListener('input', () => setTempo(+range.value, true));
-    num.addEventListener('change', () => { setTempo(+num.value); num.blur(); });
-    dnb.addEventListener('click', () => { setDnb(!S.dnb); dnb.blur(); });
+    num.addEventListener('change', () => { setTempo(+num.value); unfocus(num); });
+    dnb.addEventListener('click', () => { setDnb(!S.dnb); unfocus(dnb); });
     syncs.push(paintTempo);
     paintTempo();
   }
@@ -513,23 +520,23 @@
       const ok = S.save();
       flash(e.currentTarget, ok ? 'saved ✓' : 'no storage');
       toast(ok ? 'Loop saved in this browser. It comes back next time you open this page.' : 'This browser blocked saving. Use files → export instead.');
-      e.currentTarget.blur();
+      unfocus(e.currentTarget);
     });
     $('#revert').addEventListener('click', (e) => {
       S.goHome();
       paintRoll();
       toast('Bass pattern returned to your saved loop.');
-      e.currentTarget.blur();
+      unfocus(e.currentTarget);
     });
-    $('#clearbass').addEventListener('click', (e) => { clearPart('bass'); e.currentTarget.blur(); });
-    $('#cleardrums').addEventListener('click', (e) => { clearPart('drums'); e.currentTarget.blur(); });
+    $('#clearbass').addEventListener('click', (e) => { clearPart('bass'); unfocus(e.currentTarget); });
+    $('#cleardrums').addEventListener('click', (e) => { clearPart('drums'); unfocus(e.currentTarget); });
     $('#clean').addEventListener('click', () => {
       setClean(true);
-      $('#clean').blur();
+      unfocus($('#clean'));
     });
     $('#play').addEventListener('click', () => {
       togglePlay();
-      $('#play').blur();
+      unfocus($('#play'));
     });
     buildMutes();
     buildClips();
@@ -566,9 +573,9 @@
     const up = () => endBuild('button');
     b.addEventListener('pointerup', up);
     b.addEventListener('pointercancel', up);
-    $('#quant').addEventListener('change', (e) => { S.setQuant(e.target.value); e.target.blur(); });
-    $('#journey').addEventListener('click', (e) => { toggleJourneyPop(); e.currentTarget.blur(); });
-    $('#midi').addEventListener('click', (e) => { toggleMidi(); e.currentTarget.blur(); });
+    $('#quant').addEventListener('change', (e) => { S.setQuant(e.target.value); unfocus(e.target); });
+    $('#journey').addEventListener('click', (e) => { toggleJourneyPop(); unfocus(e.currentTarget); });
+    $('#midi').addEventListener('click', (e) => { toggleMidi(); unfocus(e.currentTarget); });
     buildJourneyPop();
   }
 
@@ -580,9 +587,9 @@
       const bars = +$('#clipbars').value;
       if (S.recordClip(part, bars)) toast(`Recording ${bars} bar${bars > 1 ? 's' : ''} of ${part} from the next bar. Play, it loops when done.`, 4500);
     };
-    $('#clipdrums').addEventListener('click', (e) => { go('drums'); e.currentTarget.blur(); });
-    $('#clipbass').addEventListener('click', (e) => { go('bass'); e.currentTarget.blur(); });
-    $('#clipbars').addEventListener('change', (e) => e.target.blur());
+    $('#clipdrums').addEventListener('click', (e) => { go('drums'); unfocus(e.currentTarget); });
+    $('#clipbass').addEventListener('click', (e) => { go('bass'); unfocus(e.currentTarget); });
+    $('#clipbars').addEventListener('change', (e) => unfocus(e.target));
     paintClips();
   }
 
@@ -601,7 +608,7 @@
           download(JSON.stringify(S.clipToJSON(part)), name);
           toast(`Saved ${name}. Drag it back onto the page any time.`);
         } else S.playClip(part, !c.active);
-        b.blur();
+        unfocus(b);
       });
       b.addEventListener('contextmenu', (e) => { e.preventDefault(); S.clearClip(part); });
       host.append(b);
@@ -847,11 +854,11 @@
       $('#pplay').setAttribute('aria-label', PB.playing ? 'Pause' : 'Play');
     };
     PB.onChange = paint;
-    $('#pplay').addEventListener('click', () => { PB.toggle(); $('#pplay').blur(); });
+    $('#pplay').addEventListener('click', () => { PB.toggle(); unfocus($('#pplay')); });
     $('#pclose').addEventListener('click', backToLive);
     const seekBar = $('#pseek');
     seekBar.addEventListener('input', () => { dragging = true; if (PB.perf) $('#ptime').textContent = `${fmtTime(+seekBar.value)} / ${fmtTime(PB.perf.duration)}`; });
-    seekBar.addEventListener('change', () => { dragging = false; PB.seek(+seekBar.value); seekBar.blur(); });
+    seekBar.addEventListener('change', () => { dragging = false; PB.seek(+seekBar.value); unfocus(seekBar); });
   }
 
   function buildDrop() {
@@ -895,16 +902,16 @@
     sel.addEventListener('change', () => {
       paintFmt();
       try { localStorage.setItem('sq.recfmt', sel.value); } catch (err) { /* fine */ }
-      sel.blur();
+      unfocus(sel);
     });
     q.addEventListener('change', () => {
       paintFmt();
       try { localStorage.setItem('sq.recq', q.value); } catch (err) { /* fine */ }
-      q.blur();
+      unfocus(q);
     });
 
     btn.addEventListener('click', async () => {
-      btn.blur();
+      unfocus(btn);
       try {
         if (R.state.active) {
           const r = await R.stop();
@@ -919,7 +926,7 @@
       }
     });
     snap.addEventListener('click', async () => {
-      snap.blur();
+      unfocus(snap);
       try { toast(`Saved ${await R.snap()}`); } catch (err) { toast(`Could not save a picture: ${err.message}`); }
     });
     R.onUpdate = (st) => {
@@ -1111,7 +1118,7 @@
     $('#eco').addEventListener('click', (e) => {
       setEco(!ecoOn, ecoOn ? null : 'Battery saver on: a smaller picture at 30 frames a second, no reverb room, simpler hats. Cooler and kinder to the battery.');
       if (!ecoOn) toast('Battery saver off.', 2000);
-      e.currentTarget.blur();
+      unfocus(e.currentTarget);
     });
     let pref = null;
     try { pref = localStorage.getItem('dd.eco'); } catch (err) { /* fine */ }
@@ -1203,7 +1210,7 @@
   }
 
   function buildHelp() {
-    $('#helpbtn').addEventListener('click', (e) => { toggleHelp(); e.currentTarget.blur(); });
+    $('#helpbtn').addEventListener('click', (e) => { toggleHelp(); unfocus(e.currentTarget); });
     $('#helpclose').addEventListener('click', () => toggleHelp(false));
     $('#ver').textContent = SS.config.version;
     const sug = $('#suggest');
@@ -1416,7 +1423,7 @@
   }
 
   function buildMobile() {
-    $('#full').addEventListener('click', (e) => { toggleFullscreen(); e.currentTarget.blur(); });
+    $('#full').addEventListener('click', (e) => { toggleFullscreen(); unfocus(e.currentTarget); });
     paintFullscreen();
     const sheet = $('#sheet');
     const paint = () => {
@@ -1424,7 +1431,7 @@
       sheet.setAttribute('aria-expanded', String(!min));
       sheet.textContent = min ? 'more ▴' : 'less ▾';
     };
-    sheet.addEventListener('click', () => { document.body.classList.toggle('sheet-min'); paint(); sheet.blur(); });
+    sheet.addEventListener('click', () => { document.body.classList.toggle('sheet-min'); paint(); unfocus(sheet); });
     if (isTouchDevice() || innerWidth < 700) document.body.classList.add('sheet-min');   // a phone starts with the picture and the main controls
     document.body.classList.toggle('touch', isTouchDevice());
     paint();

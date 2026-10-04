@@ -329,7 +329,9 @@
     };
     try {
       const src = 'let id=null;onmessage=e=>{clearInterval(id);id=null;if(e.data==="start")id=setInterval(()=>postMessage(0),25)}';
-      const w = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+      const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+      const w = new Worker(url);
+      URL.revokeObjectURL(url);                  // the worker has its code now
       w.onmessage = onTick;
       let fb = null;
       w.onerror = () => {

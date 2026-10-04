@@ -169,7 +169,9 @@ onmessage=(e)=>{const d=e.data;
  if(d.l){const out=enc.encodeBuffer(i16(d.l),i16(d.r));if(out.length){const u=new Uint8Array(out);postMessage({mp3:u},[u.buffer])}}
  if(d.end){const out=enc.flush();const u=new Uint8Array(out);postMessage({mp3:u,end:true},[u.buffer])}
 };`;
-    const w = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+    const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+    const w = new Worker(url);
+    URL.revokeObjectURL(url);                    // the worker has its code now
     return new Promise((resolve, reject) => {
       const t = setTimeout(() => reject(new Error('the MP3 encoder did not start')), 6000);
       w.onerror = () => { clearTimeout(t); reject(new Error('the MP3 encoder could not load (it needs the hosted page or localhost; WAV works everywhere)')); };
