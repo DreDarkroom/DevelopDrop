@@ -25,7 +25,7 @@
   const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
   const cutHz = (x) => 50 * Math.pow(2, clamp(x, 0, 1) * 7.6); // 0..1 -> 50Hz..~9.7kHz
 
-  let ctx, dry, fxIn, comp, master, mhp, mlp, gapGain, limiter, guard, analyser, bins, noiseBuf, voice, echo, squeak, rise, mediaDest;
+  let ctx, dry, fxIn, comp, master, mhp, mlp, gapGain, limiter, guard, analyser, bins, noiseBuf, metalBuf, voice, echo, squeak, rise, mediaDest;
   // measured in a browser: the bass alone was about 1.5x the level of everything else together, so it sits ~3.4 dB lower
   const BASS_TRIM = 0.68;
   let bassDuck, bassLevel, room, riser = null, openHat = null;
@@ -119,7 +119,7 @@
     guardIn.gain.value = 0.5;                     // the shaper only sees -1..1, so halve the signal to give it 6 dB of overs to catch
     guard = ctx.createWaveShaper();
     guard.curve = guardCurve();
-    guard.oversample = mobile || A.eco ? '2x' : '4x';
+    guard.oversample = '2x';                      // the limiter sits in front and the soft clip only bends the top 3 dB, so 2x is enough (4x cost about 5% of the CPU)
     analyser = ctx.createAnalyser();
     analyser.fftSize = 1024;
     analyser.smoothingTimeConstant = 0.7;
@@ -140,6 +140,7 @@
     noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
     const nd = noiseBuf.getChannelData(0);
     for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+    metalBuf = bakeMetal();
 
     buildTray();
     buildVoice();
@@ -161,6 +162,19 @@
 
   A.guardCurve = guardCurve;                   // exposed so it can be unit-tested
 
+  /** The six metallic squares of the hat, summed ONCE into a buffer (band-limited, like a real oscillator), instead of six oscillators on every hit. */
+  function bakeMetal() {
+    const sr = ctx.sampleRate, len = Math.floor(sr * 0.32), buf = ctx.createBuffer(1, len, sr), d = buf.getChannelData(0);
+    for (const f of METAL) {
+      const f0 = f * 2;
+      for (let h = 1; h * f0 < sr / 2; h += 2) {
+        const w = (2 * Math.PI * h * f0) / sr, a = 4 / (Math.PI * h);
+        for (let i = 0; i < len; i++) d[i] += a * Math.sin(w * i);
+      }
+    }
+    return buf;
+  }
+
   /* ---- the tray: dotted-eighth echo that darkens every pass, plus a noise-tail room ---- */
   function buildTray() {
     fxIn = ctx.createGain();
@@ -178,7 +192,8 @@
     tone.connect(comp);
 
     room = ctx.createConvolver();
-    room.buffer = impulse(A.profile === 'mobile' ? 1.4 : 2.8, 2.6);
+    // the tail is down 35 dB after 2.2 s of its 2.8 s: the last 0.6 s cost a fifth of the convolution and are inaudible under the mix
+    room.buffer = A.profile === 'mobile' ? impulse(1.4, 1.4, 2.6) : impulse(2.2, 2.8, 2.6);
     const roomOut = ctx.createGain();
     roomOut.gain.value = 0.5;
     if (!A.eco) fxIn.connect(room);
@@ -193,18 +208,18 @@
     A.eco = on;
     if (!ctx) return;
     try { if (on) fxIn.disconnect(room); else fxIn.connect(room); } catch (err) { /* already in that state */ }
-    guard.oversample = on || A.profile === 'mobile' ? '2x' : '4x';
   };
 
   /** How long after a sound is scheduled it is actually heard (a phone's buffer is big): the picture waits this long to stay in time. */
   A.lag = () => (ctx ? Math.min(0.4, Math.max(0, ctx.outputLatency || ctx.baseLatency || 0)) : 0);
 
-  function impulse(sec, curve) {
-    const len = Math.floor(ctx.sampleRate * sec);
+  /** Noise with a falling envelope. `sec` of it is kept but the curve is shaped over `total` seconds, so cutting `sec` short only trims the quiet end. */
+  function impulse(sec, total, curve) {
+    const len = Math.floor(ctx.sampleRate * sec), whole = ctx.sampleRate * total;
     const buf = ctx.createBuffer(2, len, ctx.sampleRate);
     for (let c = 0; c < 2; c++) {
       const d = buf.getChannelData(c);
-      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, curve);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / whole, curve);
     }
     return buf;
   }
@@ -332,7 +347,7 @@
 
   function burst(t, o) {
     const src = ctx.createBufferSource();
-    src.buffer = noiseBuf;
+    src.buffer = o.buf || noiseBuf;
     const f = ctx.createBiquadFilter();
     f.type = o.type;
     f.frequency.value = o.freq;
@@ -343,7 +358,7 @@
     src.connect(f);
     f.connect(g);
     route(g, o.send || 0);
-    src.start(t, Math.random() * 1.5, o.dur + 0.05);
+    src.start(t, o.buf ? 0 : Math.random() * 1.5, o.dur + 0.05);
     return g;
   }
 
@@ -410,25 +425,8 @@
       openHat = null;
     }
     let g;
-    if (h.metal && !A.eco) {                          // eco swaps the six-oscillator metal hat for plain filtered noise
-      const mix = ctx.createGain();
-      const hp = ctx.createBiquadFilter();
-      hp.type = 'highpass';
-      hp.frequency.value = h.hp;
-      g = ctx.createGain();
-      g.gain.setValueAtTime(h.g * vel * 0.6, t);
-      g.gain.exponentialRampToValueAtTime(0.0008, t + dur);
-      for (const f of METAL) {
-        const o = ctx.createOscillator();
-        o.type = 'square';
-        o.frequency.value = f * 2;
-        o.connect(mix);
-        o.start(t);
-        o.stop(t + dur + 0.02);
-      }
-      mix.connect(hp);
-      hp.connect(g);
-      route(g, 0);
+    if (h.metal && !A.eco) {                          // eco swaps the metal hat for plain filtered noise
+      g = burst(t, { buf: metalBuf, type: 'highpass', freq: h.hp, q: 1, dur, gain: h.g * vel * 0.6 });   // one pre-built buffer, not six oscillators a hit
     } else {
       g = burst(t, { type: 'highpass', freq: h.hp, dur, gain: (open ? h.g * 0.8 : h.g) * vel * 1.15 });
     }
@@ -436,21 +434,17 @@
   };
 
   /* ---- the squeegee's squeak: filtered noise following the drag ---- */
+  /* The noise source only runs while you are dragging (a second after the last movement it stops), not all the time. */
   function buildSqueak() {
-    const src = ctx.createBufferSource();
-    src.buffer = noiseBuf;
-    src.loop = true;
     const bp = ctx.createBiquadFilter();
     bp.type = 'bandpass';
     bp.Q.value = 14;
     bp.frequency.value = 1500;
     const g = ctx.createGain();
     g.gain.value = 0;
-    src.connect(bp);
     bp.connect(g);
     g.connect(dry);
-    src.start();
-    squeak = { bp, g };
+    squeak = { bp, g, src: null, off: 0 };
   }
 
   let lastSqueak = { t: -1, s: -1, x: -1 };
@@ -461,8 +455,15 @@
       hook(t, 10, r2(speed), r2(x));
       lastSqueak = { t, s: speed, x };
     }
+    if (speed > 0) {
+      if (!squeak.src) { const src = ctx.createBufferSource(); src.buffer = noiseBuf; src.loop = true; src.connect(squeak.bp); src.start(); squeak.src = src; }
+      clearTimeout(squeak.off); squeak.off = 0;
+    }
     squeak.g.gain.setTargetAtTime(clamp(speed, 0, 1) * 0.09, t, 0.03);
     squeak.bp.frequency.setTargetAtTime(900 + x * 2800, t, 0.03);
+    if (speed === 0 && squeak.src && !squeak.off) {
+      squeak.off = setTimeout(() => { if (squeak.src) { squeak.src.stop(); squeak.src.disconnect(); squeak.src = null; } squeak.off = 0; }, 1000);
+    }
   };
 
   /* ---------------- builds and drops ---------------- */

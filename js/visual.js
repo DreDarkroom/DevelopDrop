@@ -13,7 +13,9 @@
 
   let stage, sctx, fb, fctx, fog, gctx, scene, cctx, grain;
   let W = 0, H = 0, DPR = 1, R = 1, last = 0;
-  let bladeAt = null;
+  let bladeAt = null, frameNo = 0, wedge = null, wedgeKey = '', sceneN = 0;
+  const PAD = 8;                                   // the scene canvas is only ever read inside the one wedge the kaleidoscope folds, so only that box is cleared, clipped and copied
+  const wedgeH = () => Math.min(SC / 2, (SC / 2) * Math.sin(TAU / st.n)) + PAD * 2;
 
   const st = {
     t: 0, phase: 0, spin: 0, n: 8,
@@ -114,6 +116,7 @@
       c.height = H;
     }
     R = Math.hypot(W, H) / 2;
+    wedgeKey = '';
     fctx.fillStyle = '#000';
     fctx.fillRect(0, 0, W, H);
     gctx.fillStyle = '#000';
@@ -158,6 +161,7 @@
   /* ---- the squeegee ---- */
   /** One squeegee stroke segment. `size` (0.15 to 1.5, default 1) scales the blade: a pen's pressure makes it fine. */
   V.wipe = function (cx, cy, px, py, size) {
+    if (!W || !H) return;                              // the window has no size yet (a hidden tab): there is nothing to wipe, and drawing a zero-size canvas throws
     const k = typeof size === 'number' && isFinite(size) ? Math.min(1.5, Math.max(0.15, size)) : 1;
     const x = cx * DPR, y = cy * DPR, ox = px * DPR, oy = py * DPR;
     const dx = x - ox, dy = y - oy;
@@ -203,8 +207,9 @@
   /* ---- events from the sequencer, released when the audio clock reaches them ---- */
   function pump() {
     const q = SS.events, now = A.now() - A.lag();       // events are released when they are HEARD, not when they are scheduled
-    while (q.length && q[0].t <= now) {
-      const e = q.shift();
+    let n = 0;                                          // walk the due events by index and remove them in one go: shift() moved every remaining element each time
+    while (n < q.length && q[n].t <= now) {
+      const e = q[n++];
       if (e.type === 'kick') {
         st.kick = 1;
         if (rings.length < 10) rings.push({ r: 20, a: 1 });
@@ -232,6 +237,7 @@
       }
       if (SS.onEvent) SS.onEvent(e);
     }
+    if (n) q.splice(0, n);
   }
 
   /* ---- scenes: drawn once per frame in a square, centre at (512,512). Only the wedge near angle 0..a is ever seen
@@ -352,9 +358,13 @@
 
   function drawScene(bass) {
     const c = cctx, a = TAU / st.n, p = st.progress;
+    const hh = wedgeH();
+    if (sceneN !== st.n) { c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, SC, SC); sceneN = st.n; }   // the fold count changed: forget the old wedge
     c.setTransform(1, 0, 0, 1, 0, 0);
-    c.clearRect(0, 0, SC, SC);
+    c.clearRect(SC / 2, SC / 2 - PAD, SC / 2, hh);
+    c.save();
     c.translate(SC / 2, SC / 2);
+    c.beginPath(); c.rect(0, -PAD, SC / 2, hh); c.clip();     // nothing outside the wedge's box is ever rasterised
 
     if (st.mix < 1) {                                   // crossfading from the last picture to this one
       c.save(); c.globalAlpha = 1 - st.mix; SCENES[st.prevScene](c, a, bass, p); c.restore();
@@ -372,14 +382,15 @@
         rings.splice(i, 1);
         continue;
       }
-      const count = Math.max(6, Math.floor((TAU * g.r) / 26));
+      const count = Math.max(6, Math.floor((TAU * g.r) / 26)), rr = 3 + g.a * 4;
       c.fillStyle = `rgba(255,255,255,${g.a})`;
+      c.beginPath();
       for (let j = 0; j < count; j++) {
         const th = (j / count) * TAU;
-        c.beginPath();
-        c.arc(g.r * Math.cos(th), g.r * Math.sin(th), 3 + g.a * 4, 0, TAU);
-        c.fill();
+        c.moveTo(g.r * Math.cos(th) + rr, g.r * Math.sin(th));
+        c.arc(g.r * Math.cos(th), g.r * Math.sin(th), rr, 0, TAU);
       }
+      c.fill();                                   // one fill for the whole ring, not one per dot
     }
 
     // hat confetti: circles, half-circles and squares (in every scene)
@@ -401,10 +412,15 @@
       c.fill();
       c.restore();
     }
+    c.globalCompositeOperation = 'source-atop';   // colour the scene here, once, in the small wedge box, instead of multiplying the whole screen every frame
+    c.fillStyle = rgb(st.tint);
+    c.fillRect(0, -PAD, SC / 2, hh);
+    c.restore();
   }
 
   function kaleido(ctx, rot) {
-    const n = st.n, a = TAU / n, s = R / (SC / 2), eps = 0.003;
+    const n = st.n, a = TAU / n, s = R / (SC / 2), eps = 0.003, hh = wedgeH(), key = n + '|' + (R | 0);
+    if (key !== wedgeKey) { wedge = new Path2D(); wedge.moveTo(0, 0); wedge.arc(0, 0, R * 1.02, -eps, a + eps); wedge.closePath(); wedgeKey = key; }   // the outline is built once, not on every fold of every frame
     ctx.save();
     ctx.translate(W / 2, H / 2);
     for (let k = 0; k < n; k++) {
@@ -415,13 +431,9 @@
       } else {
         ctx.rotate(rot + k * a);
       }
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.arc(0, 0, R * 1.02, -eps, a + eps);
-      ctx.closePath();
-      ctx.clip();
+      ctx.clip(wedge);
       ctx.scale(s, s);
-      ctx.drawImage(scene, -SC / 2, -SC / 2);
+      ctx.drawImage(scene, SC / 2, SC / 2 - PAD, SC / 2, hh, 0, -PAD, SC / 2, hh);   // just the wedge's box, not the whole square
       ctx.restore();
     }
     ctx.restore();
@@ -520,21 +532,17 @@
     sctx.globalCompositeOperation = 'source-over';
     sctx.globalAlpha = 1;
     sctx.drawImage(fb, 0, 0);
-    sctx.globalCompositeOperation = 'multiply';
-    sctx.fillStyle = rgb(st.tint);
-    sctx.fillRect(0, 0, W, H);
 
     const glow = 0.12 + st.kick * 0.22 + tension * 0.3 + st.progress * 0.06;
-    const gr = sctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.min(W, H) * 0.7);
+    const gl = Math.min(W, H) * 0.7, gr = sctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, gl);
     gr.addColorStop(0, rgb(st.tint, glow));
     gr.addColorStop(1, rgb(st.tint, 0));
     sctx.globalCompositeOperation = 'screen';
     sctx.fillStyle = gr;
-    sctx.fillRect(0, 0, W, H);
+    sctx.fillRect(W / 2 - gl, H / 2 - gl, gl * 2, gl * 2);   // the glow ends at its radius: no need to cover the whole screen
 
     gctx.globalCompositeOperation = 'source-over';
-    gctx.fillStyle = 'rgba(0,0,0,0.02)';
-    gctx.fillRect(0, 0, W, H);
+    if (frameNo++ % 3 === 0) { gctx.fillStyle = 'rgba(0,0,0,0.06)'; gctx.fillRect(0, 0, W, H); }   // the fog creeps back a little at a time: a third as many full-screen passes, three times as much each
     sctx.globalCompositeOperation = 'source-over';
     sctx.globalAlpha = Math.max(0.1, (idle ? 0.8 : 0.86) - tension * 0.5 - st.kick * 0.12);
     sctx.drawImage(fog, 0, 0);

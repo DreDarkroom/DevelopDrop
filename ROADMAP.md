@@ -2,6 +2,13 @@
 
 A living list. Ideas are welcome: use the *Suggest something* link in the how-to card (press `?`) when it is there.
 
+## Shipped in 3.3
+
+- **Lighter on the CPU.** The metal hat is one pre-built buffer instead of six oscillators a hit; the squeak's noise source runs only while you drag; the reverb room's tail stops at 2.2 s (it is already 35 dB down there); the output soft clip oversamples 2x instead of 4x. Offline render time for the same notes: about 8% less for *Safelight* and 24% less for *Dodge & Burn* on the author's laptop (a quieter session measured 15% and 29%).
+- **Lighter on the picture.** The kaleidoscope copies only the wedge of the scene it ever shows (1.6 M pixels a frame instead of 8.4 M), the scene is coloured once in that wedge instead of multiplying the whole screen, the fog fades one frame in three, rings are one fill, and the wedge outline is built once: 8.0 full-screen passes a frame become 6.3, and 2D calls drop by 11% to 85% depending on the scene.
+- **Keyboard users keep their place.** Controls only give up focus after a mouse click, not after Enter.
+- **Smaller fixes.** The event queue is drained in one pass instead of shifting an array per event; the clock's and the MP3 encoder's worker scripts are released; wiping with a zero-size window (a hidden tab) no longer throws; the picture has an accessible role; broken characters in `config.js` and the README are repaired.
+
 ## Shipped in 3.2
 
 - **Right-click menus** on the bass grid and the drummers: mute, solo, clear a step or all, fill with a new line, shift or turn a pattern, key up and down, record a clip, reset level.
