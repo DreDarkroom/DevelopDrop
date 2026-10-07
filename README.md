@@ -1,11 +1,22 @@
 # DevelopDrop
 
 A small instrument that lives in a browser tab. A bass synth, three drummers that play against each other, and a picture
-made of light: a kaleidoscope you wipe clear with a squeegee. No installs, no accounts, nothing leaves your computer.
+made of light: a kaleidoscope you wipe clear with a squeegee. No installs, no accounts. What you make stays on your device (see Privacy below).
 
 DreDarkroom, SafeLight and SquidgySqueegee are DJ aliases.
 
+**The steady one.** DevelopDrop is the dependable version: bug fixes and small improvements only. New ideas are tried first in its experimental parallel version, [DreVelopDrop](https://github.com/DreDarkroom/DreVelopDrop) ([play it](https://dredarkroom.github.io/DreVelopDrop/)), which moves faster and may change or break.
+
 **Play it:** https://dredarkroom.github.io/DevelopDrop/ (or open `index.html` from this folder). Press the bulb. Press **?** for a short how-to.
+
+## Privacy
+
+Everything you make (loops, recordings, takes, settings) stays on your device. Nothing is uploaded.
+
+Two small things can send something, and both are in your hands or off by default:
+
+- **A feedback card.** After about two minutes of real playing (counted across visits) and a quiet moment, one question appears, once: *if this stopped existing, how would you feel?* Nothing is sent unless you press **Send**. It sends your answer, your optional note, roughly how many minutes you have played and on how many different days, the app name and version, "touch" or "desktop", and your browser language. No account, no identifier. It goes to a private notification channel on [ntfy.sh](https://ntfy.sh). "No thanks" means it never comes back. Add `?feedback=test` to the address to see the card without sending anything.
+- **A page counter** ([GoatCounter](https://www.goatcounter.com): no cookies, no IP address stored). It is **off** until `counterCode` in the config is filled in, stays off if your browser sends Do Not Track, and never runs on localhost.
 
 ## Playing
 

@@ -190,6 +190,23 @@ body.recording #recinfo { color: #fff; }
 }
 #debug[hidden] { display: none; }
 
+/* ---- the feedback card: calm, no motion, small ---- */
+#fbcard {
+  position: fixed; top: 52px; left: 50%; transform: translateX(-50%); z-index: 10; width: min(440px, calc(100vw - 24px));
+  padding: 12px 14px; border-radius: 8px; background: rgba(8, 0, 0, 0.97); border: 1px solid var(--line);
+  text-transform: none; letter-spacing: 0.03em; font-size: 12px;
+}
+#fbcard p { margin: 0 0 8px; } #fbcard .fbfine { color: var(--dim); font-size: 10.5px; margin: 8px 0 0; }
+#fbcard .fbrow { display: flex; flex-wrap: wrap; gap: 8px; }
+#fbcard button { min-height: 40px; padding: 0 14px; border-radius: 6px; background: none; border: 1px solid var(--line); color: var(--ink); }
+#fbcard button:hover { border-color: var(--tint); } #fbcard button.fbquiet { border-color: transparent; color: var(--dim); }
+#fbcard button:disabled { opacity: 0.5; cursor: default; }
+#fbcard textarea { width: 100%; margin: 0 0 8px; padding: 8px; border-radius: 6px; background: #000; border: 1px solid var(--line); color: var(--ink); font: inherit; resize: vertical; }
+#fbcard textarea:focus { outline: 1px solid var(--tint); }
+@media (pointer: coarse) { #fbcard button { min-height: 44px; } }
+@media (max-width: 700px) { #fbcard { top: calc(56px + env(safe-area-inset-top)); } }
+body.clean #fbcard { display: none; }
+
 /* ---- v3 additions ---- */
 #mast #dre { pointer-events: auto; cursor: default; font-weight: 600; }
 #armed {
